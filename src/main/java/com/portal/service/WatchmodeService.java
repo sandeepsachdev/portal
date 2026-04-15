@@ -13,8 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Fetches the 5 most recently released Netflix titles from English-speaking
- * countries using the Watchmode API.
+ * Fetches the top 5 trending Netflix titles (English) using the Watchmode API.
  *
  * Required env var: WATCHMODE_API_KEY
  * API docs: https://api.watchmode.com/
@@ -27,10 +26,13 @@ public class WatchmodeService {
     // Netflix source ID in the Watchmode catalogue
     private static final int NETFLIX_SOURCE_ID = 203;
 
-    private static final String RELEASES_URL =
-            "https://api.watchmode.com/v1/releases/" +
+    private static final String LIST_TITLES_URL =
+            "https://api.watchmode.com/v1/list-titles/" +
             "?apiKey={apiKey}" +
-            "&source_ids=" + NETFLIX_SOURCE_ID;
+            "&source_ids=" + NETFLIX_SOURCE_ID +
+            "&sort_by=popularity_desc" +
+            "&languages=en" +
+            "&limit=5";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -44,7 +46,7 @@ public class WatchmodeService {
     }
 
     /**
-     * Returns the 5 most recently released Netflix titles in English.
+     * Returns the top 5 trending Netflix titles in English, sorted by popularity.
      * Returns an empty list (with a warning logged) if the API key is not set.
      */
     public List<Show> getLatestNetflixShows() {
@@ -54,13 +56,13 @@ public class WatchmodeService {
         }
 
         try {
-            String url = RELEASES_URL.replace("{apiKey}", apiKey);
+            String url = LIST_TITLES_URL.replace("{apiKey}", apiKey);
             String response = restTemplate.getForObject(url, String.class);
             List<Show> shows = parseShows(response);
-            log.info("Watchmode returned {} English Netflix titles", shows.size());
+            log.info("Watchmode returned {} trending English Netflix titles", shows.size());
             return shows;
         } catch (Exception e) {
-            log.error("Failed to fetch Watchmode releases: {}", e.getMessage());
+            log.error("Failed to fetch Watchmode trending titles: {}", e.getMessage());
             return List.of();
         }
     }
@@ -68,32 +70,24 @@ public class WatchmodeService {
     private List<Show> parseShows(String json) throws Exception {
         List<Show> shows = new ArrayList<>();
         JsonNode root = objectMapper.readTree(json);
-        JsonNode releases = root.path("releases");
+        JsonNode titles = root.path("titles");
 
-        if (!releases.isArray()) return shows;
+        if (!titles.isArray()) return shows;
 
-        for (JsonNode node : releases) {
-            String lang = node.path("original_language").asText("");
-            // Watchmode releases endpoint often omits original_language.
-            // Only exclude when the field is explicitly set to a non-English value.
-            if (!lang.isBlank() && !"en".equalsIgnoreCase(lang)) continue;
-
+        for (JsonNode node : titles) {
             Show show = new Show();
             show.setId(node.path("id").asInt(0));
             show.setTitle(node.path("title").asText("Unknown"));
             show.setType(node.path("type").asText(""));
-            show.setReleaseDate(node.path("release_date").asText(""));
-            show.setPoster(node.path("poster").asText(null));
+
+            // list-titles returns year (int) rather than a full release date
+            int year = node.path("year").asInt(0);
+            if (year > 0) show.setReleaseDate(String.valueOf(year));
 
             String imdbId = node.path("imdb_id").asText("");
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
 
-            JsonNode ep = node.path("episode_number");
-            if (!ep.isNull() && ep.isNumber()) show.setEpisodeNumber(ep.asInt());
-
-            JsonNode sn = node.path("season_number");
-            if (!sn.isNull() && sn.isNumber()) show.setSeasonNumber(sn.asInt());
-
+            // poster is not included in list-titles; placeholder icon will show instead
             shows.add(show);
 
             if (shows.size() == 5) break;

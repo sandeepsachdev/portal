@@ -68,7 +68,7 @@
     <!-- ╔══════════╗  TOP-RIGHT: Netflix Shows ─────────────────────────── -->
     <div class="quadrant quadrant-netflix d-flex flex-column">
         <div class="quadrant-header">
-            <i class="bi bi-play-circle-fill me-2 text-danger"></i>New on Netflix
+            <i class="bi bi-play-circle-fill me-2 text-danger"></i>Trending on Netflix
             <span class="badge bg-danger ms-2">English</span>
         </div>
         <div class="quadrant-body flex-grow-1 overflow-auto">
@@ -89,17 +89,12 @@
                     <div class="show-title" th:text="${show.title}">Title</div>
                     <div class="show-meta d-flex align-items-center gap-2 flex-wrap">
                         <span class="badge bg-secondary" th:text="${show.typeLabel}">Type</span>
-                        <span th:if="${show.seasonNumber != null}"
+                        <span th:if="${show.releaseDate != null and !#strings.isEmpty(show.releaseDate)}"
                               class="text-muted small"
-                              th:text="'S' + ${show.seasonNumber}"></span>
-                        <span th:if="${show.episodeNumber != null}"
-                              class="text-muted small"
-                              th:text="'E' + ${show.episodeNumber}"></span>
+                              th:text="${show.releaseDate}"></span>
                     </div>
                     <div class="show-footer d-flex align-items-center gap-2 mt-1">
-                        <span th:if="${show.formattedReleaseDate != null}"
-                              class="show-date"
-                              th:text="${show.formattedReleaseDate}"></span>
+                        <span></span>
                         <a th:href="${show.imdbUrl}" target="_blank" rel="noopener"
                            class="imdb-link">
                             <span class="imdb-badge">IMDb</span>
