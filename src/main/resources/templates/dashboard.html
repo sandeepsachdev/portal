@@ -65,7 +65,63 @@
         </div>
     </div>
 
-    <!-- ╔══════════╗  TOP-RIGHT: Netflix Shows ─────────────────────────── -->
+    <!-- ╔══════════╗  TOP-RIGHT: Trending Topics ──────────────────────── -->
+    <div class="quadrant quadrant-trends d-flex flex-column">
+        <div class="quadrant-header">
+            <i class="bi bi-twitter-x me-2"></i>Trending in Australia
+            <span th:if="${twitterEnabled}"  class="badge bg-primary ms-2">Twitter / X</span>
+            <span th:unless="${twitterEnabled}" class="badge bg-secondary ms-2">Google Trends</span>
+        </div>
+        <div class="quadrant-body flex-grow-1 overflow-auto">
+
+            <div th:if="${#lists.isEmpty(trends)}" class="empty-state">
+                <i class="bi bi-bar-chart fs-2 d-block mb-2"></i>
+                <span>Could not load trending topics at this time.</span>
+            </div>
+
+            <div th:each="trend : ${trends}" class="trend-item d-flex align-items-center gap-3">
+                <span class="trend-rank" th:text="${trend.rank}">1</span>
+                <div class="flex-grow-1">
+                    <a th:if="${trend.url != null and !#strings.isEmpty(trend.url)}"
+                       th:href="${trend.url}" target="_blank" rel="noopener"
+                       class="trend-name" th:text="${trend.name}">Trend</a>
+                    <span th:unless="${trend.url != null and !#strings.isEmpty(trend.url)}"
+                          class="trend-name" th:text="${trend.name}">Trend</span>
+                </div>
+                <span th:if="${trend.tweetVolume != null and !#strings.isEmpty(trend.tweetVolume)}"
+                      class="trend-volume badge bg-primary"
+                      th:text="${trend.tweetVolume}"></span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ╚══════════╝  BOTTOM-LEFT: Wikipedia Trending ─────────────────── -->
+    <div class="quadrant quadrant-wiki d-flex flex-column">
+        <div class="quadrant-header">
+            <i class="bi bi-wikipedia me-2"></i>Trending on Wikipedia
+            <span class="badge bg-secondary ms-2">Most Viewed</span>
+        </div>
+        <div class="quadrant-body flex-grow-1 overflow-auto">
+
+            <div th:if="${#lists.isEmpty(wikiArticles)}" class="empty-state">
+                <i class="bi bi-wifi-off fs-2 d-block mb-2"></i>
+                <span>Could not load Wikipedia trending articles.</span>
+            </div>
+
+            <div th:each="article : ${wikiArticles}" class="wiki-item d-flex align-items-center gap-3">
+                <span class="wiki-rank" th:text="${article.rank}">1</span>
+                <div class="flex-grow-1">
+                    <a th:href="${article.url}" target="_blank" rel="noopener"
+                       class="wiki-title" th:text="${article.title}">Article</a>
+                </div>
+                <span class="wiki-views badge" th:text="${article.formattedViews}">1.2M</span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ╚══════════╝  BOTTOM-RIGHT: Netflix Shows ───────────────────────── -->
     <div class="quadrant quadrant-netflix d-flex flex-column">
         <div class="quadrant-header">
             <i class="bi bi-play-circle-fill me-2 text-danger"></i>Trending on Netflix
@@ -101,62 +157,6 @@
                         </a>
                     </div>
                 </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- ╚══════════╝  BOTTOM-LEFT: Wikipedia Trending ─────────────────── -->
-    <div class="quadrant quadrant-wiki d-flex flex-column">
-        <div class="quadrant-header">
-            <i class="bi bi-wikipedia me-2"></i>Trending on Wikipedia
-            <span class="badge bg-secondary ms-2">Most Viewed</span>
-        </div>
-        <div class="quadrant-body flex-grow-1 overflow-auto">
-
-            <div th:if="${#lists.isEmpty(wikiArticles)}" class="empty-state">
-                <i class="bi bi-wifi-off fs-2 d-block mb-2"></i>
-                <span>Could not load Wikipedia trending articles.</span>
-            </div>
-
-            <div th:each="article : ${wikiArticles}" class="wiki-item d-flex align-items-center gap-3">
-                <span class="wiki-rank" th:text="${article.rank}">1</span>
-                <div class="flex-grow-1">
-                    <a th:href="${article.url}" target="_blank" rel="noopener"
-                       class="wiki-title" th:text="${article.title}">Article</a>
-                </div>
-                <span class="wiki-views badge" th:text="${article.formattedViews}">1.2M</span>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- ╚══════════╝  BOTTOM-RIGHT: Trending Topics ────────────────────── -->
-    <div class="quadrant quadrant-trends d-flex flex-column">
-        <div class="quadrant-header">
-            <i class="bi bi-twitter-x me-2"></i>Trending in Australia
-            <span th:if="${twitterEnabled}"  class="badge bg-primary ms-2">Twitter / X</span>
-            <span th:unless="${twitterEnabled}" class="badge bg-secondary ms-2">Google Trends</span>
-        </div>
-        <div class="quadrant-body flex-grow-1 overflow-auto">
-
-            <div th:if="${#lists.isEmpty(trends)}" class="empty-state">
-                <i class="bi bi-bar-chart fs-2 d-block mb-2"></i>
-                <span>Could not load trending topics at this time.</span>
-            </div>
-
-            <div th:each="trend : ${trends}" class="trend-item d-flex align-items-center gap-3">
-                <span class="trend-rank" th:text="${trend.rank}">1</span>
-                <div class="flex-grow-1">
-                    <a th:if="${trend.url != null and !#strings.isEmpty(trend.url)}"
-                       th:href="${trend.url}" target="_blank" rel="noopener"
-                       class="trend-name" th:text="${trend.name}">Trend</a>
-                    <span th:unless="${trend.url != null and !#strings.isEmpty(trend.url)}"
-                          class="trend-name" th:text="${trend.name}">Trend</span>
-                </div>
-                <span th:if="${trend.tweetVolume != null and !#strings.isEmpty(trend.tweetVolume)}"
-                      class="trend-volume badge bg-primary"
-                      th:text="${trend.tweetVolume}"></span>
             </div>
 
         </div>
