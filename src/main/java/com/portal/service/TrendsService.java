@@ -24,10 +24,14 @@ public class TrendsService {
 
     private static final Logger log = LoggerFactory.getLogger(TrendsService.class);
 
+    // trends.google.com.au  – Australian Google domain, enforces AU results
+    // geo=AU                – country filter
+    // hl=en-AU              – host language, prevents Google defaulting to en-US
+    //                         when the server IP is outside Australia
     private static final String GOOGLE_TRENDS_RSS =
-            "https://trends.google.com.au/trending/rss?geo=AU&hours=1";
+            "https://trends.google.com.au/trending/rss?geo=AU&hl=en-AU";
     private static final String GOOGLE_TRENDS_RSS_LEGACY =
-            "https://trends.google.com.au/trends/trendingsearches/daily/rss?geo=AU";
+            "https://trends.google.com.au/trends/trendingsearches/daily/rss?geo=AU&hl=en-AU";
 
     private final RestTemplate restTemplate;
 
@@ -84,7 +88,10 @@ public class TrendsService {
                     items.add(new TrendItem(rank++, title.trim(), "", searchUrl));
                 }
             }
-            log.info("Google Trends returned {} items for AU", items.size());
+            if (!items.isEmpty()) {
+                log.info("Google Trends [{}] returned {} AU items, first: {}",
+                        rssUrl, items.size(), items.get(0).getName());
+            }
             return items;
 
         } catch (Exception e) {
@@ -103,7 +110,10 @@ public class TrendsService {
                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
         conn.setRequestProperty("Accept",
                 "application/rss+xml,application/xml;q=0.9,text/xml;q=0.8,*/*;q=0.7");
+        // Strongly prefer Australian English and set geo cookie so Google does not
+        // override the geo= param based on the server's IP address
         conn.setRequestProperty("Accept-Language", "en-AU,en;q=0.9");
+        conn.setRequestProperty("Cookie", "GL=AU; PREF=hl=en-AU;");
         return conn;
     }
 }
