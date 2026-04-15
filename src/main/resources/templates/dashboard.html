@@ -88,7 +88,7 @@
                           class="trend-name" th:text="${trend.name}">Trend</span>
                 </div>
                 <span th:if="${trend.tweetVolume != null and !#strings.isEmpty(trend.tweetVolume)}"
-                      class="trend-volume badge bg-primary"
+                      class="trend-volume badge bg-secondary"
                       th:text="${trend.tweetVolume}"></span>
             </div>
 

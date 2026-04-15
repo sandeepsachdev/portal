@@ -1,5 +1,7 @@
 package com.portal.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portal.model.TrendItem;
 import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
@@ -16,43 +18,128 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Fetches today's top trending topics in Australia from Google Trends Daily RSS.
- * No API key required.
+ * Fetches the most recent trending searches in Australia.
+ *
+ * Strategy (in order):
+ *  1. Google Trends dailytrends JSON API – actual search queries + volume
+ *  2. Google Trends RSS (trends.google.com.au) – fallback
+ *
+ * No API key required for either source.
  */
 @Service
 public class TrendsService {
 
     private static final Logger log = LoggerFactory.getLogger(TrendsService.class);
 
-    // trends.google.com.au  – Australian Google domain, enforces AU results
-    // geo=AU                – country filter
-    // hl=en-AU              – host language, prevents Google defaulting to en-US
-    //                         when the server IP is outside Australia
-    private static final String GOOGLE_TRENDS_RSS =
+    // Unofficial JSON endpoint used by pytrends – returns real search queries
+    // tz=-600  → AEST (UTC+10, minutes west of UTC in Google's convention)
+    // ns=15    → news category (broader than default)
+    private static final String DAILY_TRENDS_URL =
+            "https://trends.google.com/trends/api/dailytrends" +
+            "?hl=en-AU&tz=-600&geo=AU&ns=15";
+
+    // RSS fallback
+    private static final String RSS_PRIMARY =
             "https://trends.google.com.au/trending/rss?geo=AU&hl=en-AU";
-    private static final String GOOGLE_TRENDS_RSS_LEGACY =
+    private static final String RSS_LEGACY =
             "https://trends.google.com.au/trends/trendingsearches/daily/rss?geo=AU&hl=en-AU";
 
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TrendsService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
-    /** Returns today's top 10 trending topics in Australia. */
+    /** Returns up to 10 of the most recent trending searches in Australia. */
     public List<TrendItem> getTopTrends() {
-        for (String rssUrl : new String[]{GOOGLE_TRENDS_RSS, GOOGLE_TRENDS_RSS_LEGACY}) {
-            List<TrendItem> result = tryFetch(rssUrl);
+        // 1. Try the JSON API first – most accurate
+        try {
+            List<TrendItem> items = fetchDailyTrends();
+            if (!items.isEmpty()) {
+                log.info("Daily Trends API returned {} AU items, first: {}", items.size(), items.get(0).getName());
+                return items;
+            }
+        } catch (Exception e) {
+            log.warn("Daily Trends API failed ({}), trying RSS fallback", e.getMessage());
+        }
+
+        // 2. Fall back to RSS
+        for (String rssUrl : new String[]{RSS_PRIMARY, RSS_LEGACY}) {
+            List<TrendItem> result = tryFetchRss(rssUrl);
             if (!result.isEmpty()) return result;
         }
         return List.of();
     }
 
-    private List<TrendItem> tryFetch(String rssUrl) {
+    // ── Google Trends dailytrends JSON API ────────────────────────────────────
+
+    private List<TrendItem> fetchDailyTrends() throws Exception {
+        HttpURLConnection conn = openConnection(DAILY_TRENDS_URL);
+
+        int redirects = 0;
+        while (redirects < 5) {
+            int status = conn.getResponseCode();
+            if (status == HttpURLConnection.HTTP_MOVED_TEMP
+                    || status == HttpURLConnection.HTTP_MOVED_PERM
+                    || status == 307 || status == 308) {
+                String location = conn.getHeaderField("Location");
+                conn.disconnect();
+                conn = openConnection(location);
+                redirects++;
+            } else {
+                break;
+            }
+        }
+
+        if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+            throw new RuntimeException("HTTP " + conn.getResponseCode());
+        }
+
+        // Google prefixes the JSON response with ")]}'\n" – strip it
+        String body = new String(conn.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        if (body.startsWith(")]}'")) {
+            body = body.substring(body.indexOf('\n') + 1);
+        }
+
+        return parseDailyTrends(body);
+    }
+
+    private List<TrendItem> parseDailyTrends(String json) throws Exception {
+        List<TrendItem> items = new ArrayList<>();
+        JsonNode root = objectMapper.readTree(json);
+
+        JsonNode days = root.path("default").path("trendingSearchesDays");
+        if (!days.isArray() || days.isEmpty()) return items;
+
+        // Take the most recent day's searches
+        JsonNode searches = days.get(0).path("trendingSearches");
+        if (!searches.isArray()) return items;
+
+        int rank = 1;
+        for (JsonNode node : searches) {
+            if (items.size() >= 10) break;
+
+            String query = node.path("title").path("query").asText("").trim();
+            if (query.isBlank()) continue;
+
+            // formattedTrafficSource = "10K+ searches" or similar
+            String volume = node.path("formattedTrafficSource").asText("").trim();
+
+            String searchUrl = "https://www.google.com.au/search?q=" +
+                    java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8);
+
+            items.add(new TrendItem(rank++, query, volume, searchUrl));
+        }
+        return items;
+    }
+
+    // ── RSS fallback ──────────────────────────────────────────────────────────
+
+    private List<TrendItem> tryFetchRss(String rssUrl) {
         try {
             HttpURLConnection conn = openConnection(rssUrl);
 
-            // Follow up to 5 redirects manually to preserve the custom User-Agent
             int redirects = 0;
             while (redirects < 5) {
                 int status = conn.getResponseCode();
@@ -83,13 +170,13 @@ public class TrendsService {
                 if (items.size() >= 10) break;
                 String title = entry.getTitle();
                 if (title != null && !title.isBlank()) {
-                    String searchUrl = "https://www.google.com/search?q=" +
+                    String searchUrl = "https://www.google.com.au/search?q=" +
                             java.net.URLEncoder.encode(title.trim(), java.nio.charset.StandardCharsets.UTF_8);
                     items.add(new TrendItem(rank++, title.trim(), "", searchUrl));
                 }
             }
             if (!items.isEmpty()) {
-                log.info("Google Trends [{}] returned {} AU items, first: {}",
+                log.info("RSS fallback [{}] returned {} AU items, first: {}",
                         rssUrl, items.size(), items.get(0).getName());
             }
             return items;
@@ -100,6 +187,8 @@ public class TrendsService {
         }
     }
 
+    // ── Shared connection helper ──────────────────────────────────────────────
+
     private HttpURLConnection openConnection(String urlStr) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
         conn.setInstanceFollowRedirects(false);
@@ -109,9 +198,7 @@ public class TrendsService {
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
         conn.setRequestProperty("Accept",
-                "application/rss+xml,application/xml;q=0.9,text/xml;q=0.8,*/*;q=0.7");
-        // Strongly prefer Australian English and set geo cookie so Google does not
-        // override the geo= param based on the server's IP address
+                "application/json,application/rss+xml,application/xml;q=0.9,*/*;q=0.7");
         conn.setRequestProperty("Accept-Language", "en-AU,en;q=0.9");
         conn.setRequestProperty("Cookie", "GL=AU; PREF=hl=en-AU;");
         return conn;
