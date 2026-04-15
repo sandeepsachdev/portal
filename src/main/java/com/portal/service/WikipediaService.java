@@ -45,6 +45,11 @@ public class WikipediaService {
             "Help:", "Template:", "User:", "Talk:", "Category:", "-"
     );
 
+    // Adult / inappropriate content to exclude (case-insensitive exact match)
+    private static final Set<String> BLOCKED_TERMS = Set.of(
+            "xxx", "pornography", "porn"
+    );
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -119,6 +124,10 @@ public class WikipediaService {
         if (key.isBlank()) return true;
         for (String prefix : SKIP_PREFIXES) {
             if (key.equals(prefix) || key.startsWith(prefix)) return true;
+        }
+        String lower = key.toLowerCase(java.util.Locale.ROOT);
+        for (String term : BLOCKED_TERMS) {
+            if (lower.equals(term) || lower.startsWith(term + "_") || lower.endsWith("_" + term)) return true;
         }
         return false;
     }
