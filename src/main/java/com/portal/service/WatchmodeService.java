@@ -56,7 +56,9 @@ public class WatchmodeService {
         try {
             String url = RELEASES_URL.replace("{apiKey}", apiKey);
             String response = restTemplate.getForObject(url, String.class);
-            return parseShows(response);
+            List<Show> shows = parseShows(response);
+            log.info("Watchmode returned {} English Netflix titles", shows.size());
+            return shows;
         } catch (Exception e) {
             log.error("Failed to fetch Watchmode releases: {}", e.getMessage());
             return List.of();
@@ -72,8 +74,9 @@ public class WatchmodeService {
 
         for (JsonNode node : releases) {
             String lang = node.path("original_language").asText("");
-            // Keep only English-language titles
-            if (!"en".equalsIgnoreCase(lang)) continue;
+            // Watchmode releases endpoint often omits original_language.
+            // Only exclude when the field is explicitly set to a non-English value.
+            if (!lang.isBlank() && !"en".equalsIgnoreCase(lang)) continue;
 
             Show show = new Show();
             show.setId(node.path("id").asInt(0));

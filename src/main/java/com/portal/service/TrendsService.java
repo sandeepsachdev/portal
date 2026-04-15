@@ -3,6 +3,10 @@ package com.portal.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portal.model.TrendItem;
+import com.rometools.rome.feed.synd.SyndEntry;
+import com.rometools.rome.feed.synd.SyndFeed;
+import com.rometools.rome.io.SyndFeedInput;
+import com.rometools.rome.io.XmlReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,17 +14,17 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Fetches today's top trending topics.
  *
- * Primary  : Twitter / X API v1.1 trends endpoint – requires TWITTER_BEARER_TOKEN env var.
- *            Sydney WOEID = 1105779, Australia WOEID = 23424803.
- * Fallback : Google Trends Daily RSS for Australia (free, no auth required).
- *
- * Set env var TWITTER_BEARER_TOKEN to enable the Twitter path.
+ * Primary  : Twitter / X API v1.1 – requires TWITTER_BEARER_TOKEN env var.
+ *            Note: Twitter trends require at least the Basic paid tier ($100/mo).
+ * Fallback : Google Trends Daily RSS for Australia (free, no auth).
  */
 @Service
 public class TrendsService {
@@ -28,7 +32,7 @@ public class TrendsService {
     private static final Logger log = LoggerFactory.getLogger(TrendsService.class);
 
     private static final String TWITTER_TRENDS_URL =
-            "https://api.twitter.com/1.1/trends/place.json?id=23424803"; // Australia
+            "https://api.twitter.com/1.1/trends/place.json?id=23424803"; // Australia WOEID
 
     private static final String GOOGLE_TRENDS_RSS =
             "https://trends.google.com/trends/trendingsearches/daily/rss?geo=AU";
@@ -45,13 +49,15 @@ public class TrendsService {
     }
 
     /**
-     * Returns today's top 10 trends. Uses Twitter API when bearer token is
-     * configured, otherwise falls back to Google Trends Daily for Australia.
+     * Returns today's top 10 trends.
+     * Uses Twitter API when bearer token is configured, otherwise Google Trends.
      */
     public List<TrendItem> getTopTrends() {
         if (twitterBearerToken != null && !twitterBearerToken.isBlank()) {
             try {
-                return fetchTwitterTrends();
+                List<TrendItem> items = fetchTwitterTrends();
+                if (!items.isEmpty()) return items;
+                log.warn("Twitter trends returned empty list, falling back to Google Trends");
             } catch (Exception e) {
                 log.warn("Twitter trends failed ({}), falling back to Google Trends", e.getMessage());
             }
@@ -78,7 +84,7 @@ public class TrendsService {
         List<TrendItem> items = new ArrayList<>();
         JsonNode root = objectMapper.readTree(json);
 
-        // Twitter response is an array; first element has "trends"
+        // Twitter v1.1 response: array of location objects, each with a "trends" array
         JsonNode trendsNode = root.isArray() ? root.get(0).path("trends") : root.path("trends");
         if (trendsNode == null || !trendsNode.isArray()) return items;
 
@@ -103,41 +109,48 @@ public class TrendsService {
         return items;
     }
 
-    // ── Google Trends (fallback) ─────────────────────────────────────────────
+    // ── Google Trends (fallback – parsed with ROME) ──────────────────────────
 
     private List<TrendItem> fetchGoogleTrends() {
-        List<TrendItem> items = new ArrayList<>();
         try {
-            // Parse the RSS manually to avoid pulling in full ROME dependency path
-            String xml = restTemplate.getForObject(GOOGLE_TRENDS_RSS, String.class);
-            if (xml == null) return items;
+            // Google requires a browser-like User-Agent; otherwise returns 403
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT,
+                    "Mozilla/5.0 (compatible; PortalBot/1.0; +https://github.com)");
+            headers.set(HttpHeaders.ACCEPT, "application/rss+xml, application/xml, text/xml");
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            // Extract <title> tags inside <item> blocks
-            String[] itemBlocks = xml.split("<item>");
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    GOOGLE_TRENDS_RSS, HttpMethod.GET, entity, byte[].class);
+
+            if (response.getBody() == null) {
+                log.warn("Google Trends RSS returned empty body");
+                return List.of();
+            }
+
+            // Parse with ROME – handles CDATA, namespaces, and encodings correctly
+            SyndFeedInput input = new SyndFeedInput();
+            input.setAllowDoctypes(true);
+            SyndFeed feed = input.build(
+                    new XmlReader(new ByteArrayInputStream(response.getBody())));
+
+            List<TrendItem> items = new ArrayList<>();
             int rank = 1;
-            for (int i = 1; i < itemBlocks.length && items.size() < 10; i++) {
-                String block = itemBlocks[i];
-                String title = extractXmlTag(block, "title");
-                String link  = extractXmlTag(block, "link");
+            for (SyndEntry entry : feed.getEntries()) {
+                if (items.size() >= 10) break;
+                String title = entry.getTitle();
+                String link  = entry.getLink();
                 if (title != null && !title.isBlank()) {
-                    items.add(new TrendItem(rank++, title, "", link != null ? link : ""));
+                    items.add(new TrendItem(rank++, title.trim(), "", link != null ? link : ""));
                 }
             }
-        } catch (Exception e) {
-            log.error("Failed to fetch Google Trends: {}", e.getMessage());
-        }
-        return items;
-    }
+            log.info("Google Trends returned {} items for AU", items.size());
+            return items;
 
-    private String extractXmlTag(String xml, String tag) {
-        String open  = "<" + tag + ">";
-        String close = "</" + tag + ">";
-        int start = xml.indexOf(open);
-        int end   = xml.indexOf(close);
-        if (start < 0 || end < 0) return null;
-        return xml.substring(start + open.length(), end).trim()
-                  .replaceAll("<!\\[CDATA\\[|]]>", "")
-                  .trim();
+        } catch (Exception e) {
+            log.error("Failed to fetch Google Trends RSS: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /** Returns true when the Twitter bearer token is configured. */
