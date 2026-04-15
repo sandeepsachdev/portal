@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta http-equiv="refresh" content="300"/> <!-- auto-refresh every 5 minutes -->
+    <title>Portal Dashboard</title>
+
+    <!-- Bootstrap 5 -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+          crossorigin="anonymous"/>
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+
+    <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+</head>
+<body>
+
+<!-- ── Top bar ─────────────────────────────────────────────────────────────── -->
+<nav class="navbar navbar-dark bg-dark px-3">
+    <span class="navbar-brand fw-bold">
+        <i class="bi bi-grid-3x3-gap-fill me-2"></i>Portal Dashboard
+    </span>
+    <span class="text-secondary small" id="clock"></span>
+</nav>
+
+<!-- ── 2 × 2 grid ──────────────────────────────────────────────────────────── -->
+<div class="dashboard-grid">
+
+    <!-- ╔══════════╗  TOP-LEFT: Australian News ──────────────────────────── -->
+    <div class="quadrant quadrant-news d-flex flex-column">
+        <div class="quadrant-header">
+            <i class="bi bi-newspaper me-2"></i>Latest News &mdash; Australia
+            <span class="badge bg-secondary ms-2">ABC News</span>
+        </div>
+        <div class="quadrant-body flex-grow-1 overflow-auto">
+
+            <div th:if="${#lists.isEmpty(news)}" class="empty-state">
+                <i class="bi bi-wifi-off fs-2 d-block mb-2"></i>
+                <span>Could not load news at this time.</span>
+            </div>
+
+            <div th:each="item : ${news}" class="news-item">
+                <div class="d-flex gap-3">
+                    <img th:if="${item.imageUrl != null}" th:src="${item.imageUrl}"
+                         class="news-thumb" alt="thumbnail"
+                         onerror="this.style.display='none'"/>
+                    <div class="flex-grow-1">
+                        <a th:href="${item.url}" target="_blank" rel="noopener"
+                           class="news-title" th:text="${item.title}">Title</a>
+                        <p th:if="${item.description != null}"
+                           class="news-description mb-0"
+                           th:text="${item.description}"></p>
+                        <span th:if="${item.publishedDate != null}"
+                              class="news-date"
+                              th:text="${item.publishedDate}"></span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ╔══════════╗  TOP-RIGHT: Netflix Shows ─────────────────────────── -->
+    <div class="quadrant quadrant-netflix d-flex flex-column">
+        <div class="quadrant-header">
+            <i class="bi bi-play-circle-fill me-2 text-danger"></i>New on Netflix
+            <span class="badge bg-danger ms-2">English</span>
+        </div>
+        <div class="quadrant-body flex-grow-1 overflow-auto">
+
+            <div th:if="${#lists.isEmpty(shows)}" class="empty-state">
+                <i class="bi bi-key fs-2 d-block mb-2"></i>
+                <span>Set <code>WATCHMODE_API_KEY</code> environment variable to enable this panel.</span>
+            </div>
+
+            <div th:each="show, iterStat : ${shows}" class="show-item d-flex gap-3 align-items-start">
+                <div class="show-rank" th:text="${iterStat.count}">1</div>
+                <img th:if="${show.poster != null}" th:src="${show.poster}"
+                     class="show-poster" alt="poster"
+                     onerror="this.style.display='none'"/>
+                <div class="show-poster-placeholder bi bi-film"
+                     th:if="${show.poster == null}"></div>
+                <div class="flex-grow-1">
+                    <div class="show-title" th:text="${show.title}">Title</div>
+                    <div class="show-meta">
+                        <span class="badge bg-secondary me-1" th:text="${show.typeLabel}">Type</span>
+                        <span th:if="${show.seasonNumber != null}"
+                              class="text-muted small me-1"
+                              th:text="'S' + ${show.seasonNumber}"></span>
+                        <span th:if="${show.episodeNumber != null}"
+                              class="text-muted small me-1"
+                              th:text="'E' + ${show.episodeNumber}"></span>
+                    </div>
+                    <div class="show-date text-muted small"
+                         th:text="${show.formattedReleaseDate}"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ╚══════════╝  BOTTOM-LEFT: Sydney Petrol Prices ──────────────────── -->
+    <div class="quadrant quadrant-petrol d-flex flex-column">
+        <div class="quadrant-header">
+            <i class="bi bi-fuel-pump-fill me-2"></i>Sydney Petrol Prices
+            <span class="badge bg-warning text-dark ms-2">ULP 91</span>
+        </div>
+        <div class="quadrant-body flex-grow-1 d-flex flex-column align-items-center justify-content-center">
+
+            <!-- Error state -->
+            <div th:if="${petrol.hasError()}" class="empty-state text-center">
+                <i class="bi bi-exclamation-circle fs-2 d-block mb-2"></i>
+                <span th:text="${petrol.errorMessage}"></span>
+            </div>
+
+            <!-- Normal state -->
+            <div th:unless="${petrol.hasError()}" class="petrol-display text-center">
+
+                <div class="petrol-price-block">
+                    <span class="petrol-cents"
+                          th:text="${petrol.currentPrice != null ? #numbers.formatDecimal(petrol.currentPrice,1,1) : '—'}">
+                        150.0
+                    </span>
+                    <span class="petrol-unit">c/L</span>
+                </div>
+
+                <div class="petrol-trend mt-2"
+                     th:classappend="${petrol.trendClass}">
+                    <span class="petrol-trend-icon" th:text="${petrol.trendIcon}">↑</span>
+                    <span class="petrol-trend-label ms-1" th:text="${petrol.trendLabel}">Rising</span>
+                </div>
+
+                <div th:if="${petrol.previousPrice != null}" class="petrol-previous mt-1 text-muted small">
+                    Previous:
+                    <span th:text="${#numbers.formatDecimal(petrol.previousPrice,1,1) + ' c/L'}"></span>
+                </div>
+
+                <div th:if="${petrol.lastUpdated != null}" class="petrol-updated text-muted small mt-1">
+                    Updated: <span th:text="${petrol.lastUpdated}"></span>
+                </div>
+
+                <div class="petrol-source mt-3 text-muted small">
+                    Source: motormouth.com.au / NSW FuelCheck
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ╚══════════╝  BOTTOM-RIGHT: Trending Topics ────────────────────── -->
+    <div class="quadrant quadrant-trends d-flex flex-column">
+        <div class="quadrant-header">
+            <i class="bi bi-twitter-x me-2"></i>Trending in Australia
+            <span th:if="${twitterEnabled}"  class="badge bg-primary ms-2">Twitter / X</span>
+            <span th:unless="${twitterEnabled}" class="badge bg-secondary ms-2">Google Trends</span>
+        </div>
+        <div class="quadrant-body flex-grow-1 overflow-auto">
+
+            <div th:if="${#lists.isEmpty(trends)}" class="empty-state">
+                <i class="bi bi-bar-chart fs-2 d-block mb-2"></i>
+                <span>Could not load trending topics at this time.</span>
+            </div>
+
+            <div th:each="trend : ${trends}" class="trend-item d-flex align-items-center gap-3">
+                <span class="trend-rank" th:text="${trend.rank}">1</span>
+                <div class="flex-grow-1">
+                    <a th:if="${trend.url != null and !#strings.isEmpty(trend.url)}"
+                       th:href="${trend.url}" target="_blank" rel="noopener"
+                       class="trend-name" th:text="${trend.name}">Trend</a>
+                    <span th:unless="${trend.url != null and !#strings.isEmpty(trend.url)}"
+                          class="trend-name" th:text="${trend.name}">Trend</span>
+                </div>
+                <span th:if="${trend.tweetVolume != null and !#strings.isEmpty(trend.tweetVolume)}"
+                      class="trend-volume badge bg-primary"
+                      th:text="${trend.tweetVolume}"></span>
+            </div>
+
+        </div>
+    </div>
+
+</div><!-- /.dashboard-grid -->
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmrdX15L7KFKgZd0/W4MJLNlv0e"
+        crossorigin="anonymous"></script>
+
+<script th:src="@{/js/dashboard.js}"></script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+/* ── Global ──────────────────────────────────────────────────────────────── */
+:root {
+    --bg-page:         #0f1117;
+    --bg-quadrant:     #1a1d27;
+    --bg-header:       #12151f;
+    --border-color:    #2c2f3e;
+    --text-primary:    #e2e6f0;
+    --text-muted:      #8b92a8;
+    --accent-news:     #3b82f6;   /* blue */
+    --accent-netflix:  #e50914;   /* Netflix red */
+    --accent-petrol:   #f59e0b;   /* amber */
+    --accent-trends:   #1d9bf0;   /* Twitter blue */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+}
+
+/* ── Nav bar ─────────────────────────────────────────────────────────────── */
+.navbar {
+    height: 52px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+/* ── Dashboard grid ──────────────────────────────────────────────────────── */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    height: calc(100vh - 52px);
+    background: var(--border-color); /* gap lines */
+}
+
+/* ── Quadrant base ───────────────────────────────────────────────────────── */
+.quadrant {
+    background: var(--bg-quadrant);
+    overflow: hidden;
+    min-height: 0;        /* allow flex children to scroll */
+}
+
+.quadrant-header {
+    background: var(--bg-header);
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+/* Accent left borders */
+.quadrant-news    .quadrant-header { border-left: 3px solid var(--accent-news);    }
+.quadrant-netflix .quadrant-header { border-left: 3px solid var(--accent-netflix); }
+.quadrant-petrol  .quadrant-header { border-left: 3px solid var(--accent-petrol);  }
+.quadrant-trends  .quadrant-header { border-left: 3px solid var(--accent-trends);  }
+
+.quadrant-body {
+    padding: 12px 16px;
+}
+
+/* ── Empty / error state ─────────────────────────────────────────────────── */
+.empty-state {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 2rem 1rem;
+}
+.empty-state code {
+    background: #2c2f3e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #f0b429;
+}
+
+/* ── News quadrant ───────────────────────────────────────────────────────── */
+.news-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.news-item:last-child { border-bottom: none; }
+
+.news-thumb {
+    width: 72px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.news-title {
+    display: block;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-decoration: none;
+    line-height: 1.3;
+    margin-bottom: 4px;
+}
+.news-title:hover { color: var(--accent-news); }
+
+.news-description {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+
+.news-date {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* ── Netflix quadrant ────────────────────────────────────────────────────── */
+.show-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.show-item:last-child { border-bottom: none; }
+
+.show-rank {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-netflix);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.show-poster {
+    width: 54px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.show-poster-placeholder {
+    width: 54px;
+    height: 80px;
+    background: #2c2f3e;
+    border-radius: 4px;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.show-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 4px;
+    line-height: 1.3;
+}
+
+.show-meta { margin-bottom: 2px; }
+.show-date { font-size: 0.72rem; }
+
+/* ── Petrol quadrant ─────────────────────────────────────────────────────── */
+.petrol-display { width: 100%; }
+
+.petrol-price-block {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+}
+
+.petrol-cents {
+    font-size: 5rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--accent-petrol);
+}
+
+.petrol-unit {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.petrol-trend {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.petrol-trend-icon { font-size: 1.8rem; }
+
+.petrol-previous { opacity: 0.7; }
+
+.petrol-source {
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+/* ── Trends quadrant ─────────────────────────────────────────────────────── */
+.trend-item {
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.trend-item:last-child { border-bottom: none; }
+
+.trend-rank {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--bg-header);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.trend-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    word-break: break-word;
+}
+.trend-name:hover { color: var(--accent-trends); }
+span.trend-name { cursor: default; }
+
+.trend-volume { font-size: 0.7rem; }
+
+/* ── Responsive (stacked on mobile) ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, auto);
+        height: auto;
+    }
+    .quadrant { min-height: 320px; }
+    .petrol-cents { font-size: 3.5rem; }
+}
