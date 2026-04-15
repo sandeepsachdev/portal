@@ -7,9 +7,9 @@ A Spring Boot web application displaying a 4-quadrant live dashboard, containeri
 | Position | Content | Source |
 |---|---|---|
 | Top-left | Latest Australian news | ABC News RSS (free) |
-| Top-right | New on Netflix (English) | Watchmode API |
+| Top-right | Trending in Australia | Twitter / X API → Google Trends Daily fallback |
 | Bottom-left | Trending on Wikipedia | Wikimedia REST API (free) |
-| Bottom-right | Trending in Australia | Twitter / X API → Google Trends Daily fallback |
+| Bottom-right | New on Netflix (English) | Watchmode API |
 
 ## Tech Stack
 
@@ -132,3 +132,41 @@ This project was built entirely through conversational prompts with [Claude Code
 
 *Changes made:*
 - Changed the Google Trends RSS feed parameter from `hours=48` to `hours=24` so the panel shows only today's trends.
+
+---
+
+### Prompt 8 — Google Trends links
+
+> Update the Google Trends section so that if clicking on a trend it opens a Google search of that word.
+
+*Changes made:*
+- Each Google Trends item now links to `https://www.google.com/search?q=<trend>` instead of the Google Trends explore URL. Twitter trend links are unchanged.
+
+---
+
+### Prompt 9 — Quadrant layout swap
+
+> Swap the position of the top right and bottom right quadrants.
+
+*Changes made:*
+- Trending in Australia moved to top-right; Netflix shows moved to bottom-right.
+
+---
+
+### Prompt 10 — News timestamps
+
+> Can you add timestamps to the latest news articles.
+
+*Changes made:*
+- The ABC News `pubDate` (RFC 822) is now parsed with `ZonedDateTime`, converted to the `Australia/Sydney` timezone, and displayed as `15 Apr 2026 · 2:30 PM` instead of the date-only string.
+
+---
+
+### Prompt 11 — Wikipedia content filter
+
+> Can you filter out the xxx item in the Trending on Wikipedia section.
+
+> Can you also filter out .xxx.
+
+*Changes made:*
+- Added a `BLOCKED_TERMS` set (`xxx`, `.xxx`, `pornography`, `porn`) to `WikipediaService` with case-insensitive matching. Matches exact titles and underscore-delimited compound titles.
