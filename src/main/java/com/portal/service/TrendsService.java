@@ -25,9 +25,9 @@ public class TrendsService {
     private static final Logger log = LoggerFactory.getLogger(TrendsService.class);
 
     private static final String GOOGLE_TRENDS_RSS =
-            "https://trends.google.com/trending/rss?geo=AU&hours=1";
+            "https://trends.google.com.au/trending/rss?geo=AU&hours=1";
     private static final String GOOGLE_TRENDS_RSS_LEGACY =
-            "https://trends.google.com/trends/trendingsearches/daily/rss?geo=AU";
+            "https://trends.google.com.au/trends/trendingsearches/daily/rss?geo=AU";
 
     private final RestTemplate restTemplate;
 
