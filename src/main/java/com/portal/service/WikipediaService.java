@@ -47,7 +47,7 @@ public class WikipediaService {
 
     // Adult / inappropriate content to exclude (case-insensitive exact match)
     private static final Set<String> BLOCKED_TERMS = Set.of(
-            "xxx", "pornography", "porn"
+            "xxx", ".xxx", "pornography", "porn"
     );
 
     private final RestTemplate restTemplate;
