@@ -157,9 +157,10 @@ public class TrendsService {
             for (SyndEntry entry : feed.getEntries()) {
                 if (items.size() >= 10) break;
                 String title = entry.getTitle();
-                String link  = entry.getLink();
                 if (title != null && !title.isBlank()) {
-                    items.add(new TrendItem(rank++, title.trim(), "", link != null ? link : ""));
+                    String searchUrl = "https://www.google.com/search?q=" +
+                            java.net.URLEncoder.encode(title.trim(), java.nio.charset.StandardCharsets.UTF_8);
+                    items.add(new TrendItem(rank++, title.trim(), "", searchUrl));
                 }
             }
             log.info("Google Trends returned {} items for AU", items.size());
