@@ -32,7 +32,6 @@ public class DashboardController {
         model.addAttribute("shows",          watchmodeService.getLatestNetflixShows());
         model.addAttribute("wikiArticles",   wikipediaService.getTopArticles());
         model.addAttribute("trends",         trendsService.getTopTrends());
-        model.addAttribute("twitterEnabled", trendsService.isTwitterConfigured());
         return "dashboard";
     }
 }

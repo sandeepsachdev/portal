@@ -7,7 +7,7 @@ A Spring Boot web application displaying a 4-quadrant live dashboard, containeri
 | Position | Content | Source |
 |---|---|---|
 | Top-left | Latest Australian news | ABC News RSS (free) |
-| Top-right | Trending in Australia | Twitter / X API → Google Trends Daily fallback |
+| Top-right | Trending in Australia | Google Trends Daily RSS (free) |
 | Bottom-left | Trending on Wikipedia | Wikimedia REST API (free) |
 | Bottom-right | New on Netflix (English) | Watchmode API |
 
@@ -26,7 +26,6 @@ A Spring Boot web application displaying a 4-quadrant live dashboard, containeri
 | Variable | Required | Description |
 |---|---|---|
 | `WATCHMODE_API_KEY` | Yes | API key from [watchmode.com](https://api.watchmode.com/) |
-| `TWITTER_BEARER_TOKEN` | No | Twitter/X Bearer Token for trends (falls back to Google Trends Daily if not set) |
 | `PORT` | No | HTTP port — Render injects this automatically (defaults to `8080`) |
 
 > **Security note:** API keys are never stored in this repository. Pass them as environment variables at runtime.
@@ -170,3 +169,16 @@ This project was built entirely through conversational prompts with [Claude Code
 
 *Changes made:*
 - Added a `BLOCKED_TERMS` set (`xxx`, `.xxx`, `pornography`, `porn`) to `WikipediaService` with case-insensitive matching. Matches exact titles and underscore-delimited compound titles.
+
+---
+
+### Prompt 12 — Remove Twitter API
+
+> Remove any functionality or code related to the Twitter API. We will never use that.
+
+*Changes made:*
+- Deleted all Twitter fetch/parse methods and the `TWITTER_BEARER_TOKEN` `@Value` field from `TrendsService`.
+- Removed `twitter.bearer.token` property from `application.properties`.
+- Removed the `twitterEnabled` model attribute from `DashboardController`.
+- Replaced the Twitter/Google conditional badge in the template with a single static Google Trends badge.
+- Swapped the `bi-twitter-x` icon for `bi-graph-up-arrow`.
