@@ -36,7 +36,7 @@ public class TrendsService {
 
     // New "Trending Now" RSS endpoint (replaces deprecated /trends/trendingsearches/daily/rss)
     private static final String GOOGLE_TRENDS_RSS =
-            "https://trends.google.com/trending/rss?geo=AU&hours=24";
+            "https://trends.google.com/trending/rss?geo=AU&hours=1";
     private static final String GOOGLE_TRENDS_RSS_LEGACY =
             "https://trends.google.com/trends/trendingsearches/daily/rss?geo=AU";
 

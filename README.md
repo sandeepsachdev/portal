@@ -100,3 +100,35 @@ This project was built entirely through conversational prompts with [Claude Code
 ### Prompt 4 — Documentation
 
 > Please add prompts used to create this app in the README.
+
+---
+
+### Prompt 5 — Bug fixes (Wikipedia & Google Trends)
+
+> Wikipedia pageviews fetch failed for -3 days: 403 Forbidden: "Please set a user-agent and respect our robot policy"
+
+> Google Trends RSS returned HTTP 404
+
+*Changes made:*
+- Added a `User-Agent` header (`PortalDashboard/1.0`) to all Wikimedia REST API requests — the API now enforces this per their robot policy.
+- Updated the Google Trends RSS URL from the deprecated `/trends/trendingsearches/daily/rss` path to the new `/trending/rss?geo=AU&hours=24` endpoint, with the old URL kept as a fallback.
+
+---
+
+### Prompt 6 — Housekeeping
+
+> There are some strange characters in application.properties. Can you clean it up?
+
+*Changes made:*
+- Replaced Unicode box-drawing characters (`──`) in `application.properties` comments with plain ASCII dashes (`--`).
+
+---
+
+### Prompt 7 — Google Trends currency
+
+> The Google Trends do not seem very recent. Show me the Google Trends for today.
+
+> Yes please (change hours=48 to hours=24)
+
+*Changes made:*
+- Changed the Google Trends RSS feed parameter from `hours=48` to `hours=24` so the panel shows only today's trends.
