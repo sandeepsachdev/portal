@@ -34,7 +34,10 @@ public class TrendsService {
     private static final String TWITTER_TRENDS_URL =
             "https://api.twitter.com/1.1/trends/place.json?id=23424803"; // Australia WOEID
 
+    // New "Trending Now" RSS endpoint (replaces deprecated /trends/trendingsearches/daily/rss)
     private static final String GOOGLE_TRENDS_RSS =
+            "https://trends.google.com/trending/rss?geo=AU&hours=24";
+    private static final String GOOGLE_TRENDS_RSS_LEGACY =
             "https://trends.google.com/trends/trendingsearches/daily/rss?geo=AU";
 
     private final RestTemplate restTemplate;
@@ -113,8 +116,16 @@ public class TrendsService {
     // Use a raw URLConnection so we control redirect-following and User-Agent.
 
     private List<TrendItem> fetchGoogleTrends() {
+        for (String rssUrl : new String[]{GOOGLE_TRENDS_RSS, GOOGLE_TRENDS_RSS_LEGACY}) {
+            List<TrendItem> result = tryFetchGoogleTrends(rssUrl);
+            if (!result.isEmpty()) return result;
+        }
+        return List.of();
+    }
+
+    private List<TrendItem> tryFetchGoogleTrends(String rssUrl) {
         try {
-            HttpURLConnection conn = openConnection(GOOGLE_TRENDS_RSS);
+            HttpURLConnection conn = openConnection(rssUrl);
 
             // Follow up to 5 redirects manually so we keep the custom User-Agent
             int redirects = 0;
@@ -133,7 +144,7 @@ public class TrendsService {
             }
 
             if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                log.warn("Google Trends RSS returned HTTP {}", conn.getResponseCode());
+                log.warn("Google Trends RSS returned HTTP {} for {}", conn.getResponseCode(), rssUrl);
                 return List.of();
             }
 
@@ -155,7 +166,7 @@ public class TrendsService {
             return items;
 
         } catch (Exception e) {
-            log.error("Failed to fetch Google Trends RSS: {}", e.getMessage());
+            log.warn("Failed to fetch Google Trends RSS from {}: {}", rssUrl, e.getMessage());
             return List.of();
         }
     }

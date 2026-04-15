@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portal.model.WikipediaArticle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -28,6 +32,10 @@ public class WikipediaService {
     private static final String PAGEVIEWS_URL =
             "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/" +
             "en.wikipedia/all-access/{year}/{month}/{day}";
+
+    // Wikimedia requires a descriptive User-Agent; see https://w.wiki/4wJS
+    private static final String USER_AGENT =
+            "PortalDashboard/1.0 (sandeepsachdev17@gmail.com)";
 
     private static final int MAX_ARTICLES = 10;
 
@@ -73,7 +81,12 @@ public class WikipediaService {
                 .replace("{month}", String.format("%02d", date.getMonthValue()))
                 .replace("{day}",   String.format("%02d", date.getDayOfMonth()));
 
-        String response = restTemplate.getForObject(url, String.class);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+        String response = resp.getBody();
         if (response == null) return List.of();
 
         return parseArticles(response);
