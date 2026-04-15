@@ -7,7 +7,7 @@ A Spring Boot web application displaying a 4-quadrant live dashboard, containeri
 | Position | Content | Source |
 |---|---|---|
 | Top-left | Latest Australian news | ABC News RSS (free) |
-| Top-right | Trending in Australia | Google Trends Daily RSS (free) |
+| Top-right | Trending on Bluesky | Bluesky public API (free) |
 | Bottom-left | Trending on Wikipedia | Wikimedia REST API (free) |
 | Bottom-right | New on Netflix (English) | Watchmode API |
 
@@ -182,3 +182,15 @@ This project was built entirely through conversational prompts with [Claude Code
 - Removed the `twitterEnabled` model attribute from `DashboardController`.
 - Replaced the Twitter/Google conditional badge in the template with a single static Google Trends badge.
 - Swapped the `bi-twitter-x` icon for `bi-graph-up-arrow`.
+
+---
+
+### Prompt 13 — Replace Google Trends with Bluesky
+
+> Replace Google trends with blue sky trends.
+
+*Changes made:*
+- Rewrote `TrendsService` to call the Bluesky public API (`app.bsky.unspecced.getTrendingTopics`) — no API key required.
+- Parses `topics[].displayName` (falls back to `topic`) and uses the provided `link` or constructs a `https://bsky.app/search?q=` URL.
+- Updated the top-right quadrant header in `dashboard.html` to show "Trending on Bluesky" with a Bluesky badge and `bi-chat-square-text` icon.
+- Changed `--accent-trends` CSS variable from `#1d9bf0` (Twitter blue) to `#0085ff` (Bluesky blue).
