@@ -8,8 +8,9 @@
     --text-muted:      #8b92a8;
     --accent-news:     #3b82f6;   /* blue */
     --accent-netflix:  #e50914;   /* Netflix red */
-    --accent-petrol:   #f59e0b;   /* amber */
+    --accent-wiki:     #a0c4ff;   /* Wikipedia light-blue */
     --accent-trends:   #1d9bf0;   /* Twitter blue */
+    --imdb-yellow:     #f5c518;   /* IMDb yellow */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -63,7 +64,7 @@ html, body {
 /* Accent left borders */
 .quadrant-news    .quadrant-header { border-left: 3px solid var(--accent-news);    }
 .quadrant-netflix .quadrant-header { border-left: 3px solid var(--accent-netflix); }
-.quadrant-petrol  .quadrant-header { border-left: 3px solid var(--accent-petrol);  }
+.quadrant-wiki    .quadrant-header { border-left: 3px solid var(--accent-wiki);    }
 .quadrant-trends  .quadrant-header { border-left: 3px solid var(--accent-trends);  }
 
 .quadrant-body {
@@ -172,44 +173,58 @@ html, body {
 }
 
 .show-meta { margin-bottom: 2px; }
-.show-date { font-size: 0.72rem; }
+.show-date  { font-size: 0.72rem; color: var(--text-muted); }
 
-/* ── Petrol quadrant ─────────────────────────────────────────────────────── */
-.petrol-display { width: 100%; }
-
-.petrol-price-block {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 6px;
-}
-
-.petrol-cents {
-    font-size: 5rem;
+.imdb-link { text-decoration: none; }
+.imdb-badge {
+    display: inline-block;
+    background: var(--imdb-yellow);
+    color: #000;
+    font-size: 0.65rem;
     font-weight: 800;
-    line-height: 1;
-    color: var(--accent-petrol);
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
 }
+.imdb-badge:hover { opacity: 0.85; }
 
-.petrol-unit {
-    font-size: 1.4rem;
-    font-weight: 600;
+/* ── Wikipedia quadrant ──────────────────────────────────────────────────── */
+.wiki-item {
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.wiki-item:last-child { border-bottom: none; }
+
+.wiki-rank {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--bg-header);
+    border: 1px solid var(--border-color);
     color: var(--text-muted);
-}
-
-.petrol-trend {
-    font-size: 1.5rem;
+    font-size: 0.72rem;
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
-.petrol-trend-icon { font-size: 1.8rem; }
+.wiki-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    word-break: break-word;
+}
+.wiki-title:hover { color: var(--accent-wiki); }
 
-.petrol-previous { opacity: 0.7; }
-
-.petrol-source {
-    border-top: 1px solid var(--border-color);
-    padding-top: 8px;
-    margin-top: 8px;
+.wiki-views {
+    background: rgba(160, 196, 255, 0.15);
+    color: var(--accent-wiki);
+    border: 1px solid rgba(160, 196, 255, 0.3);
+    font-size: 0.7rem;
+    white-space: nowrap;
 }
 
 /* ── Trends quadrant ─────────────────────────────────────────────────────── */
@@ -254,5 +269,4 @@ span.trend-name { cursor: default; }
         height: auto;
     }
     .quadrant { min-height: 320px; }
-    .petrol-cents { font-size: 3.5rem; }
 }

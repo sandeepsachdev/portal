@@ -85,6 +85,9 @@ public class WatchmodeService {
             show.setReleaseDate(node.path("release_date").asText(""));
             show.setPoster(node.path("poster").asText(null));
 
+            String imdbId = node.path("imdb_id").asText("");
+            if (!imdbId.isBlank()) show.setImdbId(imdbId);
+
             JsonNode ep = node.path("episode_number");
             if (!ep.isNull() && ep.isNumber()) show.setEpisodeNumber(ep.asInt());
 

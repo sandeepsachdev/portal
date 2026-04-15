@@ -8,6 +8,7 @@ public class Show {
     private String poster;
     private Integer episodeNumber;
     private Integer seasonNumber;
+    private String imdbId;   // populated if Watchmode returns it
 
     public Show() {}
 
@@ -40,9 +41,26 @@ public class Show {
             String year  = releaseDate.substring(0, 4);
             String month = releaseDate.substring(4, 6);
             String day   = releaseDate.substring(6, 8);
-            return day + "/" + month + "/" + year;
+            String[] months = {"Jan","Feb","Mar","Apr","May","Jun",
+                               "Jul","Aug","Sep","Oct","Nov","Dec"};
+            int m = Integer.parseInt(month) - 1;
+            String monthName = (m >= 0 && m < 12) ? months[m] : month;
+            return day + " " + monthName + " " + year;
         } catch (Exception e) {
             return releaseDate;
+        }
+    }
+
+    /** IMDB URL: direct title page when imdbId is known, search URL otherwise. */
+    public String getImdbUrl() {
+        if (imdbId != null && !imdbId.isBlank()) {
+            return "https://www.imdb.com/title/" + imdbId + "/";
+        }
+        try {
+            String query = java.net.URLEncoder.encode(title, java.nio.charset.StandardCharsets.UTF_8);
+            return "https://www.imdb.com/find?q=" + query;
+        } catch (Exception e) {
+            return "https://www.imdb.com/";
         }
     }
 
@@ -68,4 +86,7 @@ public class Show {
 
     public Integer getSeasonNumber() { return seasonNumber; }
     public void setSeasonNumber(Integer seasonNumber) { this.seasonNumber = seasonNumber; }
+
+    public String getImdbId() { return imdbId; }
+    public void setImdbId(String imdbId) { this.imdbId = imdbId; }
 }

@@ -87,66 +87,50 @@
                      th:if="${show.poster == null}"></div>
                 <div class="flex-grow-1">
                     <div class="show-title" th:text="${show.title}">Title</div>
-                    <div class="show-meta">
-                        <span class="badge bg-secondary me-1" th:text="${show.typeLabel}">Type</span>
+                    <div class="show-meta d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge bg-secondary" th:text="${show.typeLabel}">Type</span>
                         <span th:if="${show.seasonNumber != null}"
-                              class="text-muted small me-1"
+                              class="text-muted small"
                               th:text="'S' + ${show.seasonNumber}"></span>
                         <span th:if="${show.episodeNumber != null}"
-                              class="text-muted small me-1"
+                              class="text-muted small"
                               th:text="'E' + ${show.episodeNumber}"></span>
                     </div>
-                    <div class="show-date text-muted small"
-                         th:text="${show.formattedReleaseDate}"></div>
+                    <div class="show-footer d-flex align-items-center gap-2 mt-1">
+                        <span th:if="${show.formattedReleaseDate != null}"
+                              class="show-date"
+                              th:text="${show.formattedReleaseDate}"></span>
+                        <a th:href="${show.imdbUrl}" target="_blank" rel="noopener"
+                           class="imdb-link">
+                            <span class="imdb-badge">IMDb</span>
+                        </a>
+                    </div>
                 </div>
             </div>
 
         </div>
     </div>
 
-    <!-- ╚══════════╝  BOTTOM-LEFT: Sydney Petrol Prices ──────────────────── -->
-    <div class="quadrant quadrant-petrol d-flex flex-column">
+    <!-- ╚══════════╝  BOTTOM-LEFT: Wikipedia Trending ─────────────────── -->
+    <div class="quadrant quadrant-wiki d-flex flex-column">
         <div class="quadrant-header">
-            <i class="bi bi-fuel-pump-fill me-2"></i>Sydney Petrol Prices
-            <span class="badge bg-warning text-dark ms-2">ULP 91</span>
+            <i class="bi bi-wikipedia me-2"></i>Trending on Wikipedia
+            <span class="badge bg-secondary ms-2">Most Viewed</span>
         </div>
-        <div class="quadrant-body flex-grow-1 d-flex flex-column align-items-center justify-content-center">
+        <div class="quadrant-body flex-grow-1 overflow-auto">
 
-            <!-- Error state -->
-            <div th:if="${petrol.hasError()}" class="empty-state text-center">
-                <i class="bi bi-exclamation-circle fs-2 d-block mb-2"></i>
-                <span th:text="${petrol.errorMessage}"></span>
+            <div th:if="${#lists.isEmpty(wikiArticles)}" class="empty-state">
+                <i class="bi bi-wifi-off fs-2 d-block mb-2"></i>
+                <span>Could not load Wikipedia trending articles.</span>
             </div>
 
-            <!-- Normal state -->
-            <div th:unless="${petrol.hasError()}" class="petrol-display text-center">
-
-                <div class="petrol-price-block">
-                    <span class="petrol-cents"
-                          th:text="${petrol.currentPrice != null ? #numbers.formatDecimal(petrol.currentPrice,1,1) : '—'}">
-                        150.0
-                    </span>
-                    <span class="petrol-unit">c/L</span>
+            <div th:each="article : ${wikiArticles}" class="wiki-item d-flex align-items-center gap-3">
+                <span class="wiki-rank" th:text="${article.rank}">1</span>
+                <div class="flex-grow-1">
+                    <a th:href="${article.url}" target="_blank" rel="noopener"
+                       class="wiki-title" th:text="${article.title}">Article</a>
                 </div>
-
-                <div class="petrol-trend mt-2"
-                     th:classappend="${petrol.trendClass}">
-                    <span class="petrol-trend-icon" th:text="${petrol.trendIcon}">↑</span>
-                    <span class="petrol-trend-label ms-1" th:text="${petrol.trendLabel}">Rising</span>
-                </div>
-
-                <div th:if="${petrol.previousPrice != null}" class="petrol-previous mt-1 text-muted small">
-                    Previous:
-                    <span th:text="${#numbers.formatDecimal(petrol.previousPrice,1,1) + ' c/L'}"></span>
-                </div>
-
-                <div th:if="${petrol.lastUpdated != null}" class="petrol-updated text-muted small mt-1">
-                    Updated: <span th:text="${petrol.lastUpdated}"></span>
-                </div>
-
-                <div class="petrol-source mt-3 text-muted small">
-                    Source: motormouth.com.au / NSW FuelCheck
-                </div>
+                <span class="wiki-views badge" th:text="${article.formattedViews}">1.2M</span>
             </div>
 
         </div>

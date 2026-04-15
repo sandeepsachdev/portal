@@ -14,8 +14,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,7 +84,6 @@ public class TrendsService {
         List<TrendItem> items = new ArrayList<>();
         JsonNode root = objectMapper.readTree(json);
 
-        // Twitter v1.1 response: array of location objects, each with a "trends" array
         JsonNode trendsNode = root.isArray() ? root.get(0).path("trends") : root.path("trends");
         if (trendsNode == null || !trendsNode.isArray()) return items;
 
@@ -102,37 +101,45 @@ public class TrendsService {
                        : String.valueOf(v);
             }
 
-            String url = node.path("url").asText("");
-            items.add(new TrendItem(rank++, name, volume, url));
+            items.add(new TrendItem(rank++, name, volume, node.path("url").asText("")));
             if (items.size() == 10) break;
         }
         return items;
     }
 
-    // ── Google Trends (fallback – parsed with ROME) ──────────────────────────
+    // ── Google Trends (fallback) ─────────────────────────────────────────────
+    //
+    // RestTemplate sometimes fails on Google's chain of HTTPS redirects.
+    // Use a raw URLConnection so we control redirect-following and User-Agent.
 
     private List<TrendItem> fetchGoogleTrends() {
         try {
-            // Google requires a browser-like User-Agent; otherwise returns 403
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.USER_AGENT,
-                    "Mozilla/5.0 (compatible; PortalBot/1.0; +https://github.com)");
-            headers.set(HttpHeaders.ACCEPT, "application/rss+xml, application/xml, text/xml");
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            HttpURLConnection conn = openConnection(GOOGLE_TRENDS_RSS);
 
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    GOOGLE_TRENDS_RSS, HttpMethod.GET, entity, byte[].class);
+            // Follow up to 5 redirects manually so we keep the custom User-Agent
+            int redirects = 0;
+            while (redirects < 5) {
+                int status = conn.getResponseCode();
+                if (status == HttpURLConnection.HTTP_MOVED_TEMP
+                        || status == HttpURLConnection.HTTP_MOVED_PERM
+                        || status == 307 || status == 308) {
+                    String location = conn.getHeaderField("Location");
+                    conn.disconnect();
+                    conn = openConnection(location);
+                    redirects++;
+                } else {
+                    break;
+                }
+            }
 
-            if (response.getBody() == null) {
-                log.warn("Google Trends RSS returned empty body");
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                log.warn("Google Trends RSS returned HTTP {}", conn.getResponseCode());
                 return List.of();
             }
 
-            // Parse with ROME – handles CDATA, namespaces, and encodings correctly
             SyndFeedInput input = new SyndFeedInput();
             input.setAllowDoctypes(true);
-            SyndFeed feed = input.build(
-                    new XmlReader(new ByteArrayInputStream(response.getBody())));
+            SyndFeed feed = input.build(new XmlReader(conn.getInputStream()));
 
             List<TrendItem> items = new ArrayList<>();
             int rank = 1;
@@ -151,6 +158,20 @@ public class TrendsService {
             log.error("Failed to fetch Google Trends RSS: {}", e.getMessage());
             return List.of();
         }
+    }
+
+    private HttpURLConnection openConnection(String urlStr) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setInstanceFollowRedirects(false); // we handle redirects manually above
+        conn.setConnectTimeout(10_000);
+        conn.setReadTimeout(15_000);
+        conn.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+        conn.setRequestProperty("Accept",
+                "application/rss+xml,application/xml;q=0.9,text/xml;q=0.8,*/*;q=0.7");
+        conn.setRequestProperty("Accept-Language", "en-AU,en;q=0.9");
+        return conn;
     }
 
     /** Returns true when the Twitter bearer token is configured. */
