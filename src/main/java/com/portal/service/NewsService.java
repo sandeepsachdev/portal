@@ -6,8 +6,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Fetches the latest Australian news from the ABC News RSS feed.
@@ -24,6 +28,13 @@ public class NewsService {
             "https://www.abc.net.au/news/feed/51120/rss.xml";
 
     private static final int MAX_ITEMS = 6;
+
+    // ABC News RSS uses RFC 822 dates: "Mon, 15 Apr 2024 02:30:00 +0000"
+    private static final DateTimeFormatter RFC_822 =
+            DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.ENGLISH);
+    private static final DateTimeFormatter DISPLAY_FMT =
+            DateTimeFormatter.ofPattern("d MMM yyyy · h:mm a", Locale.ENGLISH);
+    private static final ZoneId SYDNEY_TZ = ZoneId.of("Australia/Sydney");
 
     private final RestTemplate restTemplate;
 
@@ -72,9 +83,9 @@ public class NewsService {
                 description = description.substring(0, 177) + "…";
             }
 
-            // Format date: keep only the first part ("Mon, 15 Apr 2024 …")
-            if (pubDate != null && pubDate.length() > 16) {
-                pubDate = pubDate.substring(5, 16).trim(); // "15 Apr 2024"
+            // Parse RFC 822 date and reformat with time in Sydney timezone
+            if (pubDate != null && !pubDate.isBlank()) {
+                pubDate = formatPubDate(pubDate.trim());
             }
 
             items.add(new NewsItem(title, description, link, pubDate, imageUrl));
@@ -113,6 +124,16 @@ public class NewsService {
             return attrs.substring(urlStart, urlEnd);
         }
         return null;
+    }
+
+    private String formatPubDate(String raw) {
+        try {
+            ZonedDateTime utc = ZonedDateTime.parse(raw, RFC_822);
+            return utc.withZoneSameInstant(SYDNEY_TZ).format(DISPLAY_FMT);
+        } catch (Exception e) {
+            // Fallback: strip day-of-week prefix if parse fails
+            return raw.length() > 16 ? raw.substring(5, 16).trim() : raw;
+        }
     }
 
     private String cleanCdata(String s) {
