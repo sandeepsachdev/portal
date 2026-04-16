@@ -6,6 +6,8 @@ import com.portal.model.Show;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -40,14 +42,14 @@ public class WatchmodeService {
             "&source_ids=" + NETFLIX_SOURCE_ID +
             "&start_date={startDate}";
 
-    private static final String ACCOUNT_STATUS_URL =
-            "https://api.watchmode.com/v1/account-status/?apiKey={apiKey}";
-
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
     @Value("${watchmode.api.key:}")
     private String apiKey;
+
+    /** Cached after the most recent releases fetch; null until first successful call. */
+    private volatile String cachedUsageLabel = null;
 
     public WatchmodeService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -73,8 +75,9 @@ public class WatchmodeService {
                     .replace("{apiKey}", apiKey)
                     .replace("{startDate}", startDate);
 
-            String response = restTemplate.getForObject(url, String.class);
-            List<Show> shows = parseShows(response);
+            ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
+            cacheUsageFromHeaders(resp);
+            List<Show> shows = parseShows(resp.getBody());
             log.info("Watchmode returned {} Netflix releases since {}", shows.size(), startDate);
             return shows;
         } catch (Exception e) {
@@ -156,28 +159,44 @@ public class WatchmodeService {
         return year > 0 ? String.valueOf(year) : null;
     }
 
-    /**
-     * Returns a label like "42 / 1,000 calls this month" from the Watchmode
-     * account-status endpoint, or null if the key is unset or the call fails.
-     */
+    /** Returns the cached usage label populated during the last releases fetch, or null. */
     public String getApiUsage() {
-        if (apiKey == null || apiKey.isBlank()) return null;
-        try {
-            String url = ACCOUNT_STATUS_URL.replace("{apiKey}", apiKey);
-            String response = restTemplate.getForObject(url, String.class);
-            JsonNode root = objectMapper.readTree(response);
-            log.debug("Watchmode account status: {}", response);
+        return cachedUsageLabel;
+    }
 
-            long used  = root.path("requests_made_this_month").asLong(-1);
-            long total = root.path("requests_allowed_per_month").asLong(-1);
-            if (used < 0 || total < 0) {
-                log.warn("Unexpected account-status fields: {}", response);
-                return null;
+    /**
+     * Reads rate-limit headers from the API response and updates {@link #cachedUsageLabel}.
+     * Logs all X- headers at DEBUG so we can identify the correct header names.
+     */
+    private void cacheUsageFromHeaders(ResponseEntity<?> resp) {
+        resp.getHeaders().forEach((name, values) -> {
+            if (name.toLowerCase().startsWith("x-")) {
+                log.debug("Watchmode header: {} = {}", name, values);
             }
-            return String.format("%,d / %,d calls this month", used, total);
-        } catch (Exception e) {
-            log.warn("Could not fetch Watchmode account status: {}", e.getMessage());
-            return null;
+        });
+
+        // Try common rate-limit header patterns
+        String used      = firstHeader(resp, "X-RateLimit-Used",      "X-Rate-Limit-Used");
+        String remaining = firstHeader(resp, "X-RateLimit-Remaining", "X-Rate-Limit-Remaining");
+        String limit     = firstHeader(resp, "X-RateLimit-Limit",     "X-Rate-Limit-Limit");
+
+        if (used != null && limit != null) {
+            cachedUsageLabel = String.format("%,d / %,d calls this month",
+                    Long.parseLong(used), Long.parseLong(limit));
+        } else if (remaining != null && limit != null) {
+            long lim  = Long.parseLong(limit);
+            long rem  = Long.parseLong(remaining);
+            cachedUsageLabel = String.format("%,d / %,d calls this month", lim - rem, lim);
+        } else {
+            log.debug("No recognised rate-limit headers found in Watchmode response");
         }
+    }
+
+    private String firstHeader(ResponseEntity<?> resp, String... names) {
+        for (String name : names) {
+            String val = resp.getHeaders().getFirst(name);
+            if (val != null && !val.isBlank()) return val.trim();
+        }
+        return null;
     }
 }
