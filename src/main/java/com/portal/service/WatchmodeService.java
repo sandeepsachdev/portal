@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Fetches the 5 most recently released English Netflix titles using the Watchmode API.
+ * Fetches up to 25 most recently released English Netflix titles using the Watchmode API.
  *
  * Required env var: WATCHMODE_API_KEY
  * API docs: https://api.watchmode.com/
@@ -29,16 +29,17 @@ public class WatchmodeService {
     private static final int NETFLIX_SOURCE_ID = 203;
     private static final int LOOKBACK_DAYS = 5;
 
+    private static final int MAX_RESULTS = 25;
+
     private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    // Fetch up to 10 so there's headroom after any language filtering, return first 5
     private static final String LIST_TITLES_URL =
             "https://api.watchmode.com/v1/list-titles/" +
             "?apiKey={apiKey}" +
             "&source_ids=" + NETFLIX_SOURCE_ID +
             "&sort_by=release_date_desc" +
             "&languages=en" +
-            "&limit=10" +
+            "&limit=" + MAX_RESULTS +
             "&release_date_start={releaseDateStart}";
 
     private final RestTemplate restTemplate;
@@ -53,8 +54,8 @@ public class WatchmodeService {
     }
 
     /**
-     * Returns up to 5 English Netflix titles released in the last {@value LOOKBACK_DAYS} days,
-     * sorted by release date descending.
+     * Returns up to {@value MAX_RESULTS} English Netflix titles released in the last
+     * {@value LOOKBACK_DAYS} days, sorted by release date descending.
      */
     public List<Show> getLatestNetflixShows() {
         if (apiKey == null || apiKey.isBlank()) {
@@ -110,7 +111,6 @@ public class WatchmodeService {
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
 
             shows.add(show);
-            if (shows.size() == 5) break;
         }
         return shows;
     }
