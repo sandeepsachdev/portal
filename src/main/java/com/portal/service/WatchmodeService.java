@@ -115,8 +115,7 @@ public class WatchmodeService {
             String source = node.path("source_name").asText("");
             if (!source.isBlank()) show.setSource(source);
 
-            // poster may be present in releases
-            String poster = node.path("poster").asText("");
+            String poster = node.path("poster_url").asText("");
             if (!poster.isBlank()) show.setPoster(poster);
 
             shows.add(show);
@@ -135,7 +134,7 @@ public class WatchmodeService {
      *  - Year-only integer (e.g. 2026) — stored as-is (displays as "2026")
      */
     private String parseReleaseDate(JsonNode node) {
-        JsonNode rdNode = node.path("release_date");
+        JsonNode rdNode = node.path("source_release_date");
         if (!rdNode.isMissingNode() && !rdNode.isNull()) {
             if (rdNode.isNumber()) {
                 long rd = rdNode.asLong(0);
