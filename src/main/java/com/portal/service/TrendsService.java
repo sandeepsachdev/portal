@@ -22,14 +22,17 @@ import java.util.List;
  *
  * Endpoint: https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrendingTopics
  * No API key or authentication required.
+ * Requests Australian region first; falls back to global if nothing is returned.
  */
 @Service
 public class TrendsService {
 
     private static final Logger log = LoggerFactory.getLogger(TrendsService.class);
 
-    private static final String BLUESKY_TRENDS_URL =
+    private static final String BASE_URL =
             "https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrendingTopics?limit=10";
+    private static final String AU_TRENDS_URL  = BASE_URL + "&region=AU";
+    private static final String ALL_TRENDS_URL = BASE_URL;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -38,29 +41,36 @@ public class TrendsService {
         this.restTemplate = restTemplate;
     }
 
-    /** Returns up to 10 trending topics from Bluesky. */
+    /** Returns up to 10 trending topics from Bluesky, preferring Australian trends. */
     public List<TrendItem> getTopTrends() {
+        // 1. Try AU-specific trends
+        List<TrendItem> au = fetch(AU_TRENDS_URL, "AU");
+        if (!au.isEmpty()) return au;
+
+        // 2. Fall back to global trends
+        return fetch(ALL_TRENDS_URL, "global");
+    }
+
+    private List<TrendItem> fetch(String url, String label) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set("User-Agent", "PortalDashboard/1.0");
             headers.set("Accept", "application/json");
 
             ResponseEntity<String> response = restTemplate.exchange(
-                    BLUESKY_TRENDS_URL,
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    String.class
-            );
+                    url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 List<TrendItem> items = parseTrends(response.getBody());
                 if (!items.isEmpty()) {
-                    log.info("Bluesky trends returned {} items, first: {}", items.size(), items.get(0).getName());
+                    log.info("Bluesky {} trends returned {} items, first: {}",
+                            label, items.size(), items.get(0).getName());
                     return items;
                 }
+                log.info("Bluesky {} trends returned an empty list", label);
             }
         } catch (Exception e) {
-            log.warn("Bluesky trends API failed: {}", e.getMessage());
+            log.warn("Bluesky {} trends API failed: {}", label, e.getMessage());
         }
         return List.of();
     }
