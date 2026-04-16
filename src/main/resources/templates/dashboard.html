@@ -144,9 +144,12 @@
                     <div class="show-title" th:text="${show.title}">Title</div>
                     <div class="show-meta d-flex align-items-center gap-2 flex-wrap">
                         <span class="badge bg-secondary" th:text="${show.typeLabel}">Type</span>
+                        <span th:if="${show.source != null and !#strings.isEmpty(show.source)}"
+                              class="badge bg-dark border border-secondary"
+                              th:text="${show.source}">Source</span>
                         <span th:if="${show.releaseDate != null and !#strings.isEmpty(show.releaseDate)}"
                               class="text-muted small"
-                              th:text="${show.formattedReleaseDate}"></span>
+                              th:text="${show.formattedReleaseDate}">Date</span>
                     </div>
                     <div class="show-footer d-flex align-items-center gap-2 mt-1">
                         <span></span>

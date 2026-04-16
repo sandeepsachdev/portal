@@ -8,7 +8,8 @@ public class Show {
     private String poster;
     private Integer episodeNumber;
     private Integer seasonNumber;
-    private String imdbId;   // populated if Watchmode returns it
+    private String imdbId;
+    private String source;   // populated if Watchmode returns it
 
     public Show() {}
 
@@ -89,4 +90,7 @@ public class Show {
 
     public String getImdbId() { return imdbId; }
     public void setImdbId(String imdbId) { this.imdbId = imdbId; }
+
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
 }

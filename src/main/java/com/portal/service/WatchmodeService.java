@@ -106,6 +106,9 @@ public class WatchmodeService {
             String imdbId = node.path("imdb_id").asText("");
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
 
+            String source = node.path("source_name").asText("");
+            if (!source.isBlank()) show.setSource(source);
+
             // poster may be present in releases
             String poster = node.path("poster").asText("");
             if (!poster.isBlank()) show.setPoster(poster);
