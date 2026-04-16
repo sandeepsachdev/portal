@@ -162,14 +162,11 @@ public class WatchmodeService {
 
     /**
      * Reads rate-limit headers from the API response and updates {@link #cachedUsageLabel}.
-     * Logs all X- headers at DEBUG so we can identify the correct header names.
+     * Logs all response headers at INFO so we can identify the correct header names.
      */
     private void cacheUsageFromHeaders(ResponseEntity<?> resp) {
-        resp.getHeaders().forEach((name, values) -> {
-            if (name.toLowerCase().startsWith("x-")) {
-                log.debug("Watchmode header: {} = {}", name, values);
-            }
-        });
+        resp.getHeaders().forEach((name, values) ->
+                log.info("Watchmode response header: {} = {}", name, values));
 
         // Try common rate-limit header patterns
         String used      = firstHeader(resp, "X-RateLimit-Used",      "X-Rate-Limit-Used");
@@ -184,7 +181,7 @@ public class WatchmodeService {
             long rem  = Long.parseLong(remaining);
             cachedUsageLabel = String.format("%,d / %,d calls this month", lim - rem, lim);
         } else {
-            log.debug("No recognised rate-limit headers found in Watchmode response");
+            log.info("No recognised rate-limit headers in Watchmode response");
         }
     }
 

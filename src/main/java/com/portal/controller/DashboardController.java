@@ -31,14 +31,17 @@ public class DashboardController {
 
     @GetMapping("/")
     public String dashboard(Model model) {
-        // Run all external API calls in parallel so a slow source doesn't block the rest
+        // Run all external API calls in parallel so a slow source doesn't block the rest.
+        // getApiUsage() reads a cache populated by getLatestNetflixShows(), so it is
+        // chained rather than run as an independent future.
         CompletableFuture<?>[] futures = {
             CompletableFuture.supplyAsync(newsService::getLatestNews)
                 .thenAccept(v -> model.addAttribute("news", v)),
             CompletableFuture.supplyAsync(watchmodeService::getLatestNetflixShows)
-                .thenAccept(v -> model.addAttribute("shows", v)),
-            CompletableFuture.supplyAsync(watchmodeService::getApiUsage)
-                .thenAccept(v -> model.addAttribute("netflixUsage", v)),
+                .thenAccept(shows -> {
+                    model.addAttribute("shows", shows);
+                    model.addAttribute("netflixUsage", watchmodeService.getApiUsage());
+                }),
             CompletableFuture.supplyAsync(wikipediaService::getTopArticles)
                 .thenAccept(v -> model.addAttribute("wikiArticles", v)),
             CompletableFuture.supplyAsync(trendsService::getTopTrends)
