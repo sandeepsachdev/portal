@@ -16,6 +16,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Fetches up to 25 most recently released English Netflix titles using the Watchmode API.
@@ -33,7 +34,9 @@ public class WatchmodeService {
 
     private static final int MAX_RESULTS = 25;
 
-    private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter ISO_DATE    = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter YYYYMMDD     = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     // /v1/releases/ includes release_date per item; list-titles only has year
     private static final String RELEASES_URL =
@@ -128,20 +131,26 @@ public class WatchmodeService {
     }
 
     /**
-     * Extracts a release date from a Watchmode release node as a YYYYMMDD string,
-     * which {@link com.portal.model.Show#getFormattedReleaseDate()} renders as "11 Apr 2026".
-     *
-     * The confirmed field is source_release_date in "YYYY-MM-DD" format.
+     * Parses source_release_date from a Watchmode release node and returns a
+     * display-ready string (e.g. "15 Apr 2026") so the template can use
+     * ${show.releaseDate} directly without any further formatting.
      */
     private String parseReleaseDate(JsonNode node) {
         String s = node.path("source_release_date").asText("").trim();
         if (s.matches("\\d{4}-\\d{2}-\\d{2}")) {
-            return s.replace("-", "");   // "2026-04-11" → "20260411"
+            try {
+                return LocalDate.parse(s, ISO_DATE).format(DISPLAY_DATE); // "15 Apr 2026"
+            } catch (Exception e) {
+                return s;
+            }
         }
         if (s.matches("\\d{8}")) {
-            return s;                    // already YYYYMMDD
+            try {
+                return LocalDate.parse(s, YYYYMMDD).format(DISPLAY_DATE);
+            } catch (Exception e) {
+                return s;
+            }
         }
-        // Fall back to year-only integer
         int year = node.path("year").asInt(0);
         return year > 0 ? String.valueOf(year) : null;
     }
