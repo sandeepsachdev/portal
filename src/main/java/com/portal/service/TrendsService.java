@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URLEncoder;
@@ -43,12 +44,13 @@ public class TrendsService {
 
     /** Returns up to 10 trending topics from Bluesky, preferring Australian trends. */
     public List<TrendItem> getTopTrends() {
-        // 1. Try AU-specific trends
-        List<TrendItem> au = fetch(AU_TRENDS_URL, "AU");
-        if (!au.isEmpty()) return au;
-
-        // 2. Fall back to global trends
-        return fetch(ALL_TRENDS_URL, "global");
+        // Try global first (more stable); fall back to AU-specific if it returns results
+        List<TrendItem> global = fetch(ALL_TRENDS_URL, "global");
+        if (!global.isEmpty()) {
+            List<TrendItem> au = fetch(AU_TRENDS_URL, "AU");
+            return au.isEmpty() ? global : au;
+        }
+        return List.of();
     }
 
     private List<TrendItem> fetch(String url, String label) {
@@ -69,6 +71,8 @@ public class TrendsService {
                 }
                 log.info("Bluesky {} trends returned an empty list", label);
             }
+        } catch (HttpStatusCodeException e) {
+            log.warn("Bluesky {} trends failed: {} – {}", label, e.getStatusCode(), e.getResponseBodyAsString());
         } catch (Exception e) {
             log.warn("Bluesky {} trends API failed: {}", label, e.getMessage());
         }
