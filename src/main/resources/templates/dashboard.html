@@ -146,7 +146,7 @@
                         <span class="badge bg-secondary" th:text="${show.typeLabel}">Type</span>
                         <span th:if="${show.releaseDate != null and !#strings.isEmpty(show.releaseDate)}"
                               class="text-muted small"
-                              th:text="${show.releaseDate}"></span>
+                              th:text="${show.formattedReleaseDate}"></span>
                     </div>
                     <div class="show-footer d-flex align-items-center gap-2 mt-1">
                         <span></span>
