@@ -83,11 +83,15 @@ public class TrendsService {
             }
             if (name.isBlank()) continue;
 
-            // Use provided link, or build a Bluesky search URL
+            // Use provided link, or build a Bluesky search URL.
+            // The API returns relative paths (e.g. "/search?q=...") so
+            // we must prepend the base URL to make them absolute.
             String link = node.path("link").asText("").trim();
             if (link.isBlank()) {
                 link = "https://bsky.app/search?q=" +
                         URLEncoder.encode(name, StandardCharsets.UTF_8);
+            } else if (link.startsWith("/")) {
+                link = "https://bsky.app" + link;
             }
 
             // startedAt or description can serve as "volume" — use description if present
