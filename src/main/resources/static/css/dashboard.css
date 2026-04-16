@@ -24,6 +24,9 @@ html, body {
     font-size: 14px;
 }
 
+/* Bootstrap 5 text-muted defaults to near-black; override for dark theme */
+.text-muted { color: var(--text-muted) !important; }
+
 /* ── Nav bar ─────────────────────────────────────────────────────────────── */
 .navbar {
     height: 52px;
