@@ -29,6 +29,8 @@ public class WatchmodeService {
     private static final int NETFLIX_SOURCE_ID = 203;
     private static final int LOOKBACK_DAYS = 5;
 
+    private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
+
     // Fetch up to 10 so there's headroom after any language filtering, return first 5
     private static final String LIST_TITLES_URL =
             "https://api.watchmode.com/v1/list-titles/" +
@@ -61,14 +63,14 @@ public class WatchmodeService {
         }
 
         try {
-            long startTimestamp = LocalDate.now(ZoneOffset.UTC)
+            // Watchmode expects YYYYMMDD integers for date filter params, not Unix timestamps
+            String startDate = LocalDate.now(ZoneOffset.UTC)
                     .minusDays(LOOKBACK_DAYS)
-                    .atStartOfDay(ZoneOffset.UTC)
-                    .toEpochSecond();
+                    .format(YYYYMMDD);
 
             String url = LIST_TITLES_URL
                     .replace("{apiKey}", apiKey)
-                    .replace("{releaseDateStart}", String.valueOf(startTimestamp));
+                    .replace("{releaseDateStart}", startDate);
 
             String response = restTemplate.getForObject(url, String.class);
             List<Show> shows = parseShows(response);
@@ -94,16 +96,15 @@ public class WatchmodeService {
             show.setTitle(node.path("title").asText("Unknown"));
             show.setType(node.path("type").asText(""));
 
-            // Prefer release_date (Unix timestamp) returned when date-filtering;
-            // fall back to year (integer) from the general list.
-            long releaseDateEpoch = node.path("release_date").asLong(0);
-            if (releaseDateEpoch > 0) {
-                LocalDate date = LocalDate.ofEpochDay(releaseDateEpoch / 86400);
-                show.setReleaseDate(date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-            } else {
-                int year = node.path("year").asInt(0);
-                if (year > 0) show.setReleaseDate(String.valueOf(year));
-            }
+            // Parse release date — Watchmode may return it as a YYYYMMDD integer,
+            // a Unix timestamp, a "YYYY-MM-DD" string, or only a year integer.
+            String releaseDate = parseReleaseDate(node);
+            if (releaseDate != null) show.setReleaseDate(releaseDate);
+            log.debug("Title: {}, raw release_date: {}, year: {}, parsed: {}",
+                    show.getTitle(),
+                    node.path("release_date").asText("(absent)"),
+                    node.path("year").asText("(absent)"),
+                    releaseDate);
 
             String imdbId = node.path("imdb_id").asText("");
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
@@ -112,5 +113,40 @@ public class WatchmodeService {
             if (shows.size() == 5) break;
         }
         return shows;
+    }
+
+    /**
+     * Extracts a release date from a Watchmode title node in YYYYMMDD format,
+     * ready for {@link com.portal.model.Show#getFormattedReleaseDate()}.
+     *
+     * Handles four formats the API may return:
+     *  - YYYYMMDD integer (e.g. 20260411) — used directly
+     *  - Unix timestamp integer (e.g. 1744934400) — converted via epoch days
+     *  - "YYYY-MM-DD" string — dashes stripped
+     *  - Year-only integer (e.g. 2026) — stored as-is (displays as "2026")
+     */
+    private String parseReleaseDate(JsonNode node) {
+        JsonNode rdNode = node.path("release_date");
+        if (!rdNode.isMissingNode() && !rdNode.isNull()) {
+            if (rdNode.isNumber()) {
+                long rd = rdNode.asLong(0);
+                if (rd >= 10_000_000) {          // looks like YYYYMMDD (≥ 10000101)
+                    return String.valueOf(rd);
+                } else if (rd > 0) {             // Unix timestamp in seconds
+                    return LocalDate.ofEpochDay(rd / 86_400L)
+                            .format(YYYYMMDD);
+                }
+            } else {
+                String s = rdNode.asText("").trim();
+                if (s.matches("\\d{8}")) {
+                    return s;                    // already YYYYMMDD
+                } else if (s.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    return s.replace("-", "");   // "YYYY-MM-DD" → "YYYYMMDD"
+                }
+            }
+        }
+        // Fall back to year-only
+        int year = node.path("year").asInt(0);
+        return year > 0 ? String.valueOf(year) : null;
     }
 }
