@@ -40,6 +40,9 @@ public class WatchmodeService {
             "&source_ids=" + NETFLIX_SOURCE_ID +
             "&start_date={startDate}";
 
+    private static final String ACCOUNT_STATUS_URL =
+            "https://api.watchmode.com/v1/account-status/?apiKey={apiKey}";
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -151,5 +154,30 @@ public class WatchmodeService {
         // Fall back to year-only
         int year = node.path("year").asInt(0);
         return year > 0 ? String.valueOf(year) : null;
+    }
+
+    /**
+     * Returns a label like "42 / 1,000 calls this month" from the Watchmode
+     * account-status endpoint, or null if the key is unset or the call fails.
+     */
+    public String getApiUsage() {
+        if (apiKey == null || apiKey.isBlank()) return null;
+        try {
+            String url = ACCOUNT_STATUS_URL.replace("{apiKey}", apiKey);
+            String response = restTemplate.getForObject(url, String.class);
+            JsonNode root = objectMapper.readTree(response);
+            log.debug("Watchmode account status: {}", response);
+
+            long used  = root.path("requests_made_this_month").asLong(-1);
+            long total = root.path("requests_allowed_per_month").asLong(-1);
+            if (used < 0 || total < 0) {
+                log.warn("Unexpected account-status fields: {}", response);
+                return null;
+            }
+            return String.format("%,d / %,d calls this month", used, total);
+        } catch (Exception e) {
+            log.warn("Could not fetch Watchmode account status: {}", e.getMessage());
+            return null;
+        }
     }
 }

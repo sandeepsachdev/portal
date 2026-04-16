@@ -125,6 +125,9 @@
         <div class="quadrant-header">
             <i class="bi bi-play-circle-fill me-2 text-danger"></i>New on Netflix
             <span class="badge bg-danger ms-2">Last 5 Days</span>
+            <span th:if="${netflixUsage != null}"
+                  class="ms-auto text-muted small fw-normal"
+                  th:text="${netflixUsage}"></span>
         </div>
         <div class="quadrant-body flex-grow-1 overflow-auto">
 

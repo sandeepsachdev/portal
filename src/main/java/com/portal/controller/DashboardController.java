@@ -30,6 +30,7 @@ public class DashboardController {
     public String dashboard(Model model) {
         model.addAttribute("news",           newsService.getLatestNews());
         model.addAttribute("shows",          watchmodeService.getLatestNetflixShows());
+        model.addAttribute("netflixUsage",   watchmodeService.getApiUsage());
         model.addAttribute("wikiArticles",   wikipediaService.getTopArticles());
         model.addAttribute("trends",         trendsService.getTopTrends());
         return "dashboard";
