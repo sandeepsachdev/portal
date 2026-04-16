@@ -9,11 +9,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Fetches the top 5 trending Netflix titles (English) using the Watchmode API.
+ * Fetches the 5 most recently released English Netflix titles using the Watchmode API.
  *
  * Required env var: WATCHMODE_API_KEY
  * API docs: https://api.watchmode.com/
@@ -23,16 +26,18 @@ public class WatchmodeService {
 
     private static final Logger log = LoggerFactory.getLogger(WatchmodeService.class);
 
-    // Netflix source ID in the Watchmode catalogue
     private static final int NETFLIX_SOURCE_ID = 203;
+    private static final int LOOKBACK_DAYS = 5;
 
+    // Fetch up to 10 so there's headroom after any language filtering, return first 5
     private static final String LIST_TITLES_URL =
             "https://api.watchmode.com/v1/list-titles/" +
             "?apiKey={apiKey}" +
             "&source_ids=" + NETFLIX_SOURCE_ID +
-            "&sort_by=popularity_desc" +
+            "&sort_by=release_date_desc" +
             "&languages=en" +
-            "&limit=5";
+            "&limit=10" +
+            "&release_date_start={releaseDateStart}";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -46,8 +51,8 @@ public class WatchmodeService {
     }
 
     /**
-     * Returns the top 5 trending Netflix titles in English, sorted by popularity.
-     * Returns an empty list (with a warning logged) if the API key is not set.
+     * Returns up to 5 English Netflix titles released in the last {@value LOOKBACK_DAYS} days,
+     * sorted by release date descending.
      */
     public List<Show> getLatestNetflixShows() {
         if (apiKey == null || apiKey.isBlank()) {
@@ -56,13 +61,22 @@ public class WatchmodeService {
         }
 
         try {
-            String url = LIST_TITLES_URL.replace("{apiKey}", apiKey);
+            long startTimestamp = LocalDate.now(ZoneOffset.UTC)
+                    .minusDays(LOOKBACK_DAYS)
+                    .atStartOfDay(ZoneOffset.UTC)
+                    .toEpochSecond();
+
+            String url = LIST_TITLES_URL
+                    .replace("{apiKey}", apiKey)
+                    .replace("{releaseDateStart}", String.valueOf(startTimestamp));
+
             String response = restTemplate.getForObject(url, String.class);
             List<Show> shows = parseShows(response);
-            log.info("Watchmode returned {} trending English Netflix titles", shows.size());
+            log.info("Watchmode returned {} Netflix titles released in the last {} days",
+                    shows.size(), LOOKBACK_DAYS);
             return shows;
         } catch (Exception e) {
-            log.error("Failed to fetch Watchmode trending titles: {}", e.getMessage());
+            log.error("Failed to fetch Watchmode titles: {}", e.getMessage());
             return List.of();
         }
     }
@@ -80,16 +94,21 @@ public class WatchmodeService {
             show.setTitle(node.path("title").asText("Unknown"));
             show.setType(node.path("type").asText(""));
 
-            // list-titles returns year (int) rather than a full release date
-            int year = node.path("year").asInt(0);
-            if (year > 0) show.setReleaseDate(String.valueOf(year));
+            // Prefer release_date (Unix timestamp) returned when date-filtering;
+            // fall back to year (integer) from the general list.
+            long releaseDateEpoch = node.path("release_date").asLong(0);
+            if (releaseDateEpoch > 0) {
+                LocalDate date = LocalDate.ofEpochDay(releaseDateEpoch / 86400);
+                show.setReleaseDate(date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+            } else {
+                int year = node.path("year").asInt(0);
+                if (year > 0) show.setReleaseDate(String.valueOf(year));
+            }
 
             String imdbId = node.path("imdb_id").asText("");
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
 
-            // poster is not included in list-titles; placeholder icon will show instead
             shows.add(show);
-
             if (shows.size() == 5) break;
         }
         return shows;
