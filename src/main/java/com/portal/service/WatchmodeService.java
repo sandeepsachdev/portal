@@ -166,22 +166,16 @@ public class WatchmodeService {
      */
     private void cacheUsageFromHeaders(ResponseEntity<?> resp) {
         resp.getHeaders().forEach((name, values) ->
-                log.info("Watchmode response header: {} = {}", name, values));
+                log.debug("Watchmode response header: {} = {}", name, values));
 
-        // Try common rate-limit header patterns
-        String used      = firstHeader(resp, "X-RateLimit-Used",      "X-Rate-Limit-Used");
-        String remaining = firstHeader(resp, "X-RateLimit-Remaining", "X-Rate-Limit-Remaining");
-        String limit     = firstHeader(resp, "X-RateLimit-Limit",     "X-Rate-Limit-Limit");
+        String used  = firstHeader(resp, "x-account-quota-used");
+        String limit = firstHeader(resp, "x-account-quota");
 
         if (used != null && limit != null) {
             cachedUsageLabel = String.format("%,d / %,d calls this month",
                     Long.parseLong(used), Long.parseLong(limit));
-        } else if (remaining != null && limit != null) {
-            long lim  = Long.parseLong(limit);
-            long rem  = Long.parseLong(remaining);
-            cachedUsageLabel = String.format("%,d / %,d calls this month", lim - rem, lim);
         } else {
-            log.info("No recognised rate-limit headers in Watchmode response");
+            log.info("Watchmode quota headers not found in response");
         }
     }
 
