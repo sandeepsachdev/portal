@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -101,20 +102,19 @@ public class WatchmodeService {
         }
         log.debug("First release node: {}", releases.get(0));
 
-        for (JsonNode node : releases) {
-            if (shows.size() >= MAX_RESULTS) break;
+        // Collect all items with their raw date for sorting
+        record Entry(String rawDate, Show show) {}
+        List<Entry> entries = new ArrayList<>();
 
+        for (JsonNode node : releases) {
             Show show = new Show();
             show.setId(node.path("id").asInt(0));
             show.setTitle(node.path("title").asText("Unknown"));
             show.setType(node.path("type").asText(""));
 
+            String rawDate = node.path("source_release_date").asText("");
             String releaseDate = parseReleaseDate(node);
             if (releaseDate != null) show.setReleaseDate(releaseDate);
-            log.info("Show: {}, source_release_date raw: {}, parsed: {}",
-                    show.getTitle(),
-                    node.path("source_release_date").asText("(absent)"),
-                    releaseDate);
 
             String imdbId = node.path("imdb_id").asText("");
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
@@ -125,8 +125,13 @@ public class WatchmodeService {
             String poster = node.path("poster_url").asText("");
             if (!poster.isBlank()) show.setPoster(poster);
 
-            shows.add(show);
+            entries.add(new Entry(rawDate, show));
         }
+
+        // Sort by source_release_date descending — YYYY-MM-DD strings sort correctly
+        entries.sort(Comparator.comparing((Entry e) -> e.rawDate()).reversed());
+
+        entries.stream().limit(MAX_RESULTS).map(Entry::show).forEach(shows::add);
         return shows;
     }
 
