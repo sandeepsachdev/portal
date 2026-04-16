@@ -33,14 +33,12 @@ public class WatchmodeService {
 
     private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    private static final String LIST_TITLES_URL =
-            "https://api.watchmode.com/v1/list-titles/" +
+    // /v1/releases/ includes release_date per item; list-titles only has year
+    private static final String RELEASES_URL =
+            "https://api.watchmode.com/v1/releases/" +
             "?apiKey={apiKey}" +
             "&source_ids=" + NETFLIX_SOURCE_ID +
-            "&sort_by=release_date_desc" +
-            "&languages=en" +
-            "&limit=" + MAX_RESULTS +
-            "&release_date_start={releaseDateStart}";
+            "&start_date={startDate}";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -64,19 +62,17 @@ public class WatchmodeService {
         }
 
         try {
-            // Watchmode expects YYYYMMDD integers for date filter params, not Unix timestamps
             String startDate = LocalDate.now(ZoneOffset.UTC)
                     .minusDays(LOOKBACK_DAYS)
                     .format(YYYYMMDD);
 
-            String url = LIST_TITLES_URL
+            String url = RELEASES_URL
                     .replace("{apiKey}", apiKey)
-                    .replace("{releaseDateStart}", startDate);
+                    .replace("{startDate}", startDate);
 
             String response = restTemplate.getForObject(url, String.class);
             List<Show> shows = parseShows(response);
-            log.info("Watchmode returned {} Netflix titles released in the last {} days",
-                    shows.size(), LOOKBACK_DAYS);
+            log.info("Watchmode returned {} Netflix releases since {}", shows.size(), startDate);
             return shows;
         } catch (Exception e) {
             log.error("Failed to fetch Watchmode titles: {}", e.getMessage());
@@ -87,28 +83,32 @@ public class WatchmodeService {
     private List<Show> parseShows(String json) throws Exception {
         List<Show> shows = new ArrayList<>();
         JsonNode root = objectMapper.readTree(json);
-        JsonNode titles = root.path("titles");
 
-        if (!titles.isArray()) return shows;
+        // /v1/releases/ returns a "releases" array; log first item to confirm field names
+        JsonNode releases = root.path("releases");
+        if (!releases.isArray() || releases.isEmpty()) {
+            log.info("Watchmode releases response: {}", json.length() > 300 ? json.substring(0, 300) : json);
+            return shows;
+        }
+        log.debug("First release node: {}", releases.get(0));
 
-        for (JsonNode node : titles) {
+        for (JsonNode node : releases) {
+            if (shows.size() >= MAX_RESULTS) break;
+
             Show show = new Show();
             show.setId(node.path("id").asInt(0));
             show.setTitle(node.path("title").asText("Unknown"));
             show.setType(node.path("type").asText(""));
 
-            // Parse release date — Watchmode may return it as a YYYYMMDD integer,
-            // a Unix timestamp, a "YYYY-MM-DD" string, or only a year integer.
             String releaseDate = parseReleaseDate(node);
             if (releaseDate != null) show.setReleaseDate(releaseDate);
-            log.debug("Title: {}, raw release_date: {}, year: {}, parsed: {}",
-                    show.getTitle(),
-                    node.path("release_date").asText("(absent)"),
-                    node.path("year").asText("(absent)"),
-                    releaseDate);
 
             String imdbId = node.path("imdb_id").asText("");
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
+
+            // poster may be present in releases
+            String poster = node.path("poster").asText("");
+            if (!poster.isBlank()) show.setPoster(poster);
 
             shows.add(show);
         }
