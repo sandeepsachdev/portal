@@ -168,11 +168,19 @@
                               th:text="${show.releaseDate}">Date</span>
                     </div>
                     <div class="show-footer d-flex align-items-center gap-2 mt-1">
-                        <span></span>
-                        <a th:href="${show.imdbUrl}" target="_blank" rel="noopener"
+                        <span th:if="${show.rating != null}"
+                              class="imdb-rating">
+                            <span class="imdb-badge">IMDb</span>
+                            <span class="imdb-score" th:text="${show.rating}">7.5</span>
+                        </span>
+                        <a th:unless="${show.rating != null}"
+                           th:href="${show.imdbUrl}" target="_blank" rel="noopener"
                            class="imdb-link">
                             <span class="imdb-badge">IMDb</span>
                         </a>
+                        <a th:if="${show.rating != null}"
+                           th:href="${show.imdbUrl}" target="_blank" rel="noopener"
+                           class="imdb-link ms-1" style="font-size:0.7rem; color:var(--text-muted)">↗</a>
                     </div>
                 </div>
             </div>

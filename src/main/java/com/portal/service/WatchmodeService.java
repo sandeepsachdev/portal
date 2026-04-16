@@ -18,6 +18,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Fetches up to 25 most recently released English Netflix titles using the Watchmode API.
@@ -45,6 +48,12 @@ public class WatchmodeService {
             "?apiKey={apiKey}" +
             "&source_ids=" + NETFLIX_SOURCE_ID +
             "&start_date={startDate}";
+
+    private static final String DETAILS_URL =
+            "https://api.watchmode.com/v1/title/{id}/details/?apiKey={apiKey}";
+
+    // Dedicated pool for parallel detail fetches (I/O-bound)
+    private static final ExecutorService DETAILS_POOL = Executors.newFixedThreadPool(5);
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -132,7 +141,36 @@ public class WatchmodeService {
         entries.sort(Comparator.comparing((Entry e) -> e.rawDate()).reversed());
 
         entries.stream().limit(MAX_RESULTS).map(Entry::show).forEach(shows::add);
+        enrichWithRatings(shows);
         return shows;
+    }
+
+    /** Fetches user_rating from title details for each show in parallel. */
+    private void enrichWithRatings(List<Show> shows) {
+        List<CompletableFuture<Void>> futures = shows.stream().map(show ->
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String url = DETAILS_URL
+                            .replace("{id}", String.valueOf(show.getId()))
+                            .replace("{apiKey}", apiKey);
+                    String body = restTemplate.getForObject(url, String.class);
+                    if (body != null) {
+                        JsonNode root = objectMapper.readTree(body);
+                        double rating = root.path("user_rating").asDouble(0);
+                        if (rating > 0) show.setRating(String.format("%.1f", rating));
+                    }
+                } catch (Exception e) {
+                    log.debug("Rating fetch failed for show {}: {}", show.getId(), e.getMessage());
+                }
+            }, DETAILS_POOL)
+        ).toList();
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.debug("Some rating fetches timed out or failed");
+        }
     }
 
     /**

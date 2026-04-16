@@ -179,6 +179,7 @@ html, body {
 .show-date  { font-size: 0.72rem; color: var(--text-muted); }
 
 .imdb-link { text-decoration: none; }
+.imdb-rating { display: inline-flex; align-items: center; gap: 4px; }
 .imdb-badge {
     display: inline-block;
     background: var(--imdb-yellow);
@@ -190,6 +191,11 @@ html, body {
     letter-spacing: 0.03em;
 }
 .imdb-badge:hover { opacity: 0.85; }
+.imdb-score {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--imdb-yellow);
+}
 
 /* ── Wikipedia quadrant ──────────────────────────────────────────────────── */
 .wiki-item {

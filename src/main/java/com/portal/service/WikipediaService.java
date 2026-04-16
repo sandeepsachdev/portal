@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Fetches the most-viewed Wikipedia articles for the current day using the
@@ -52,6 +54,9 @@ public class WikipediaService {
     private static final Set<String> BLOCKED_TERMS = Set.of(
             "xxx", ".xxx", "pornography", "porn"
     );
+
+    // Dedicated pool for I/O-bound summary fetches — avoids starving the common ForkJoinPool
+    private static final ExecutorService SUMMARY_POOL = Executors.newFixedThreadPool(MAX_ARTICLES);
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -108,9 +113,7 @@ public class WikipediaService {
         List<CompletableFuture<Void>> futures = articles.stream().map(article ->
             CompletableFuture.runAsync(() -> {
                 try {
-                    String url = SUMMARY_URL.replace("{title}",
-                            java.net.URLEncoder.encode(article.getArticleKey(),
-                                    java.nio.charset.StandardCharsets.UTF_8));
+                    String url = SUMMARY_URL.replace("{title}", article.getArticleKey());
                     ResponseEntity<String> resp = restTemplate.exchange(
                             url, HttpMethod.GET, entity, String.class);
                     if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
@@ -123,11 +126,12 @@ public class WikipediaService {
                 } catch (Exception e) {
                     log.debug("Summary fetch failed for {}: {}", article.getArticleKey(), e.getMessage());
                 }
-            })
+            }, SUMMARY_POOL)
         ).toList();
 
         try {
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(8, java.util.concurrent.TimeUnit.SECONDS);
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
             log.debug("Some Wikipedia summary fetches timed out or failed");
         }
