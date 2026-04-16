@@ -8,6 +8,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 @Controller
 public class DashboardController {
 
@@ -28,11 +31,34 @@ public class DashboardController {
 
     @GetMapping("/")
     public String dashboard(Model model) {
-        model.addAttribute("news",           newsService.getLatestNews());
-        model.addAttribute("shows",          watchmodeService.getLatestNetflixShows());
-        model.addAttribute("netflixUsage",   watchmodeService.getApiUsage());
-        model.addAttribute("wikiArticles",   wikipediaService.getTopArticles());
-        model.addAttribute("trends",         trendsService.getTopTrends());
+        // Run all external API calls in parallel so a slow source doesn't block the rest
+        CompletableFuture<?>[] futures = {
+            CompletableFuture.supplyAsync(newsService::getLatestNews)
+                .thenAccept(v -> model.addAttribute("news", v)),
+            CompletableFuture.supplyAsync(watchmodeService::getLatestNetflixShows)
+                .thenAccept(v -> model.addAttribute("shows", v)),
+            CompletableFuture.supplyAsync(watchmodeService::getApiUsage)
+                .thenAccept(v -> model.addAttribute("netflixUsage", v)),
+            CompletableFuture.supplyAsync(wikipediaService::getTopArticles)
+                .thenAccept(v -> model.addAttribute("wikiArticles", v)),
+            CompletableFuture.supplyAsync(trendsService::getTopTrends)
+                .thenAccept(v -> model.addAttribute("trends", v)),
+        };
+
+        // Wait for all, but no longer than 15 s total
+        try {
+            CompletableFuture.allOf(futures).get(15, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            // Partial results are fine — each service already returns an empty list on error
+        }
+
+        // Ensure model keys always exist so Thymeleaf th:if / th:each don't throw
+        model.asMap().putIfAbsent("news",         List.of());
+        model.asMap().putIfAbsent("shows",        List.of());
+        model.asMap().putIfAbsent("netflixUsage", null);
+        model.asMap().putIfAbsent("wikiArticles", List.of());
+        model.asMap().putIfAbsent("trends",       List.of());
+
         return "dashboard";
     }
 }
