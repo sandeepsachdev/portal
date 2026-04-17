@@ -9,7 +9,7 @@ A Spring Boot web application displaying a 4-quadrant live dashboard, containeri
 | Top-left | Latest Australian news | ABC News RSS (free) |
 | Top-right | Trending on Bluesky | Bluesky public API (free) |
 | Bottom-left | Trending on Wikipedia | Wikimedia REST API (free) |
-| Bottom-right | New on Netflix (English) | Watchmode API |
+| Bottom-right | New Streaming Shows | Watchmode API |
 
 ## Tech Stack
 
@@ -18,6 +18,7 @@ A Spring Boot web application displaying a 4-quadrant live dashboard, containeri
 - **Bootstrap 5** + **Bootstrap Icons** — UI
 - **ROME** — RSS feed parsing
 - **Jsoup** — HTML scraping fallback
+- **Caffeine** — in-process caching (reduces external API calls)
 - **Maven** — build tool
 - **Docker** — multi-stage image (builder + slim JRE runtime)
 
@@ -194,3 +195,50 @@ This project was built entirely through conversational prompts with [Claude Code
 - Parses `topics[].displayName` (falls back to `topic`) and uses the provided `link` or constructs a `https://bsky.app/search?q=` URL.
 - Updated the top-right quadrant header in `dashboard.html` to show "Trending on Bluesky" with a Bluesky badge and `bi-chat-square-text` icon.
 - Changed `--accent-trends` CSS variable from `#1d9bf0` (Twitter blue) to `#0085ff` (Bluesky blue).
+
+---
+
+### Prompt 14 — Netflix section overhaul
+
+> Change the trending on Netflix section to show shows released in the last 5 days.
+
+> Display the source and release date of each show.
+
+> Add ratings to shows in the new on Netflix section.
+
+> Change the title to "New Streaming Shows". Remove the Last 5 Days badge.
+
+*Changes made:*
+- Switched from Watchmode `/v1/list-titles/` to `/v1/releases/` endpoint, filtered by `start_date` (5 days ago) and sorted by `source_release_date` descending so most-recent appears first.
+- Added `source_name`, `source_release_date`, and `poster_url` fields — displayed as source badge, formatted date, and poster image per show.
+- Added IMDb `user_rating` by calling `/v1/title/{id}/details/` for each show in parallel; displayed as a yellow `IMDb 7.5` badge.
+- Watchmode API quota usage (`x-account-quota-used` / `x-account-quota`) displayed in the quadrant header.
+- Renamed quadrant to "New Streaming Shows".
+
+---
+
+### Prompt 15 — Wikipedia thumbnails and descriptions
+
+> In the Wikipedia section show a photo alongside each trending page and also a short description next to each one.
+
+> Filter out trending Wikipedia pages which don't have a photo or a description.
+
+*Changes made:*
+- After fetching the top-viewed article list, fires one `GET /api/rest_v1/page/summary/{title}` per article in parallel (dedicated 25-thread pool) to retrieve `thumbnail.source` and `description`.
+- Articles missing either field are filtered out; fetches 25 candidates initially so up to 10 remain after filtering.
+- Template updated to show a 60×60 thumbnail, title, short description, and view-count badge per row.
+
+---
+
+### Prompt 16 — Performance and reliability
+
+> The app is not responding at startup — just hanging when you access it.
+
+> Make fewer calls to the Watchmode API to make the quota last longer.
+
+*Changes made:*
+- Added 5 s connect / 10 s read timeouts to `RestTemplate` so a stalled API cannot block server threads indefinitely.
+- `DashboardController` now runs all four service calls concurrently via `CompletableFuture` (15 s total timeout); partial results render if any source is slow.
+- Added Caffeine in-process cache with per-source TTLs: Netflix shows 2 h, Wikipedia 30 m, news 15 m, Bluesky trends 15 m. Reduces Watchmode calls from ~11,000/day to ~13/day.
+- Fixed `text-muted` Bootstrap override so muted text is visible on the dark background.
+- Dark-theme Bootstrap `text-muted` override added to `dashboard.css`.
