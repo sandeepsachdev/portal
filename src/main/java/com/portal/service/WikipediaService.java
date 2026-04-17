@@ -43,6 +43,7 @@ public class WikipediaService {
             "PortalDashboard/1.0 (sandeepsachdev17@gmail.com)";
 
     private static final int MAX_ARTICLES = 10;
+    private static final int FETCH_ARTICLES = 25; // fetch more to survive thumbnail/description filtering
 
     // System / meta pages that are not real articles
     private static final Set<String> SKIP_PREFIXES = Set.of(
@@ -56,7 +57,7 @@ public class WikipediaService {
     );
 
     // Dedicated pool for I/O-bound summary fetches — avoids starving the common ForkJoinPool
-    private static final ExecutorService SUMMARY_POOL = Executors.newFixedThreadPool(MAX_ARTICLES);
+    private static final ExecutorService SUMMARY_POOL = Executors.newFixedThreadPool(FETCH_ARTICLES);
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -104,7 +105,8 @@ public class WikipediaService {
 
         List<WikipediaArticle> articles = parseArticles(response);
         enrichWithSummaries(articles, headers);
-        return articles;
+        articles.removeIf(a -> a.getThumbnailUrl() == null || a.getDescription() == null);
+        return articles.size() > MAX_ARTICLES ? articles.subList(0, MAX_ARTICLES) : articles;
     }
 
     /** Fetches thumbnail + description for each article in parallel via the summary API. */
@@ -155,7 +157,7 @@ public class WikipediaService {
             if (shouldSkip(key)) continue;
 
             articles.add(new WikipediaArticle(rank, key, views));
-            if (articles.size() == MAX_ARTICLES) break;
+            if (articles.size() == FETCH_ARTICLES) break;
         }
         return articles;
     }
