@@ -6,6 +6,7 @@ import com.portal.model.Show;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -73,6 +74,7 @@ public class WatchmodeService {
      * Returns up to {@value MAX_RESULTS} English Netflix titles released in the last
      * {@value LOOKBACK_DAYS} days, sorted by release date descending.
      */
+    @Cacheable("netflixShows")
     public List<Show> getLatestNetflixShows() {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("WATCHMODE_API_KEY is not set – Netflix shows quadrant will be empty");

@@ -3,6 +3,7 @@ package com.portal.service;
 import com.portal.model.NewsItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -46,6 +47,7 @@ public class NewsService {
      * Returns the latest {@value #MAX_ITEMS} Australian news stories.
      * Returns an empty list on any error (error is logged).
      */
+    @Cacheable("news")
     public List<NewsItem> getLatestNews() {
         try {
             String xml = restTemplate.getForObject(ABC_NEWS_RSS, String.class);

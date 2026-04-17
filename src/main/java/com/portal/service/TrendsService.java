@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portal.model.TrendItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -43,6 +44,7 @@ public class TrendsService {
     }
 
     /** Returns up to 10 trending topics from Bluesky, preferring Australian trends. */
+    @Cacheable("trends")
     public List<TrendItem> getTopTrends() {
         // Try global first (more stable); fall back to AU-specific if it returns results
         List<TrendItem> global = fetch(ALL_TRENDS_URL, "global");

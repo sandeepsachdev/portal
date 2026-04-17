@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portal.model.WikipediaArticle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -71,6 +72,7 @@ public class WikipediaService {
      * Returns up to {@value #MAX_ARTICLES} most-viewed Wikipedia articles.
      * Tries yesterday first (data always complete), falls back to two days ago.
      */
+    @Cacheable("wikiArticles")
     public List<WikipediaArticle> getTopArticles() {
         // Yesterday's data is always fully available; today's may still be partial
         for (int daysBack = 1; daysBack <= 3; daysBack++) {
