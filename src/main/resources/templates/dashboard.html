@@ -108,13 +108,26 @@
                 <span>Could not load Wikipedia trending articles.</span>
             </div>
 
-            <div th:each="article : ${wikiArticles}" class="wiki-item d-flex align-items-center gap-3">
-                <span class="wiki-rank" th:text="${article.rank}">1</span>
+            <div th:each="article : ${wikiArticles}" class="wiki-item d-flex gap-3">
+                <span class="wiki-rank flex-shrink-0 mt-1" th:text="${article.rank}">1</span>
+                <img th:if="${article.thumbnailUrl != null}"
+                     th:src="${article.thumbnailUrl}"
+                     class="wiki-thumb flex-shrink-0"
+                     alt="thumbnail"
+                     onerror="this.style.display='none'"/>
+                <div class="wiki-thumb-placeholder flex-shrink-0"
+                     th:if="${article.thumbnailUrl == null}"></div>
                 <div class="flex-grow-1">
-                    <a th:href="${article.url}" target="_blank" rel="noopener"
-                       class="wiki-title" th:text="${article.title}">Article</a>
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <a th:href="${article.url}" target="_blank" rel="noopener"
+                           class="wiki-title" th:text="${article.title}">Article</a>
+                        <span class="wiki-views badge flex-shrink-0"
+                              th:text="${article.formattedViews}">1.2M</span>
+                    </div>
+                    <p th:if="${article.description != null}"
+                       class="wiki-description mb-0"
+                       th:text="${article.description}"></p>
                 </div>
-                <span class="wiki-views badge" th:text="${article.formattedViews}">1.2M</span>
             </div>
 
         </div>
@@ -123,8 +136,7 @@
     <!-- ╚══════════╝  BOTTOM-RIGHT: Netflix Shows ───────────────────────── -->
     <div class="quadrant quadrant-netflix d-flex flex-column">
         <div class="quadrant-header">
-            <i class="bi bi-play-circle-fill me-2 text-danger"></i>New on Netflix
-            <span class="badge bg-danger ms-2">Last 5 Days</span>
+            <i class="bi bi-play-circle-fill me-2 text-danger"></i>New Streaming Shows
             <span th:if="${netflixUsage != null}"
                   class="ms-auto text-muted small fw-normal"
                   th:text="${netflixUsage}"></span>
@@ -155,11 +167,19 @@
                               th:text="${show.releaseDate}">Date</span>
                     </div>
                     <div class="show-footer d-flex align-items-center gap-2 mt-1">
-                        <span></span>
-                        <a th:href="${show.imdbUrl}" target="_blank" rel="noopener"
+                        <span th:if="${show.rating != null}"
+                              class="imdb-rating">
+                            <span class="imdb-badge">IMDb</span>
+                            <span class="imdb-score" th:text="${show.rating}">7.5</span>
+                        </span>
+                        <a th:unless="${show.rating != null}"
+                           th:href="${show.imdbUrl}" target="_blank" rel="noopener"
                            class="imdb-link">
                             <span class="imdb-badge">IMDb</span>
                         </a>
+                        <a th:if="${show.rating != null}"
+                           th:href="${show.imdbUrl}" target="_blank" rel="noopener"
+                           class="imdb-link ms-1" style="font-size:0.7rem; color:var(--text-muted)">↗</a>
                     </div>
                 </div>
             </div>

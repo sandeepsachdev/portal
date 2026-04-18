@@ -2,10 +2,12 @@ package com.portal.model;
 
 public class WikipediaArticle {
     private int rank;
-    private String title;       // display title (spaces, not underscores)
-    private String articleKey;  // raw key used in the URL
+    private String title;
+    private String articleKey;
     private long views;
     private String url;
+    private String thumbnailUrl;
+    private String description;
 
     public WikipediaArticle() {}
 
@@ -39,4 +41,10 @@ public class WikipediaArticle {
 
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }
+
+    public String getThumbnailUrl() { return thumbnailUrl; }
+    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 }

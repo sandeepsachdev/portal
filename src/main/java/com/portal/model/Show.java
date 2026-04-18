@@ -9,7 +9,8 @@ public class Show {
     private Integer episodeNumber;
     private Integer seasonNumber;
     private String imdbId;
-    private String source;   // populated if Watchmode returns it
+    private String source;
+    private String rating;   // populated if Watchmode returns it
 
     public Show() {}
 
@@ -93,4 +94,7 @@ public class Show {
 
     public String getSource() { return source; }
     public void setSource(String source) { this.source = source; }
+
+    public String getRating() { return rating; }
+    public void setRating(String rating) { this.rating = rating; }
 }

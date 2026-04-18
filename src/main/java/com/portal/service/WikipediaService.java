@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portal.model.WikipediaArticle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -13,10 +14,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Fetches the most-viewed Wikipedia articles for the current day using the
@@ -33,11 +36,15 @@ public class WikipediaService {
             "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/" +
             "en.wikipedia/all-access/{year}/{month}/{day}";
 
+    private static final String SUMMARY_URL =
+            "https://en.wikipedia.org/api/rest_v1/page/summary/{title}";
+
     // Wikimedia requires a descriptive User-Agent; see https://w.wiki/4wJS
     private static final String USER_AGENT =
             "PortalDashboard/1.0 (sandeepsachdev17@gmail.com)";
 
     private static final int MAX_ARTICLES = 10;
+    private static final int FETCH_ARTICLES = 25; // fetch more to survive thumbnail/description filtering
 
     // System / meta pages that are not real articles
     private static final Set<String> SKIP_PREFIXES = Set.of(
@@ -49,6 +56,9 @@ public class WikipediaService {
     private static final Set<String> BLOCKED_TERMS = Set.of(
             "xxx", ".xxx", "pornography", "porn"
     );
+
+    // Dedicated pool for I/O-bound summary fetches — avoids starving the common ForkJoinPool
+    private static final ExecutorService SUMMARY_POOL = Executors.newFixedThreadPool(FETCH_ARTICLES);
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -62,6 +72,7 @@ public class WikipediaService {
      * Returns up to {@value #MAX_ARTICLES} most-viewed Wikipedia articles.
      * Tries yesterday first (data always complete), falls back to two days ago.
      */
+    @Cacheable("wikiArticles")
     public List<WikipediaArticle> getTopArticles() {
         // Yesterday's data is always fully available; today's may still be partial
         for (int daysBack = 1; daysBack <= 3; daysBack++) {
@@ -94,7 +105,40 @@ public class WikipediaService {
         String response = resp.getBody();
         if (response == null) return List.of();
 
-        return parseArticles(response);
+        List<WikipediaArticle> articles = parseArticles(response);
+        enrichWithSummaries(articles, headers);
+        articles.removeIf(a -> a.getThumbnailUrl() == null || a.getDescription() == null);
+        return articles.size() > MAX_ARTICLES ? articles.subList(0, MAX_ARTICLES) : articles;
+    }
+
+    /** Fetches thumbnail + description for each article in parallel via the summary API. */
+    private void enrichWithSummaries(List<WikipediaArticle> articles, HttpHeaders headers) {
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        List<CompletableFuture<Void>> futures = articles.stream().map(article ->
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String url = SUMMARY_URL.replace("{title}", article.getArticleKey());
+                    ResponseEntity<String> resp = restTemplate.exchange(
+                            url, HttpMethod.GET, entity, String.class);
+                    if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+                        JsonNode root = objectMapper.readTree(resp.getBody());
+                        String desc = root.path("description").asText("").trim();
+                        if (!desc.isBlank()) article.setDescription(desc);
+                        String thumb = root.path("thumbnail").path("source").asText("").trim();
+                        if (!thumb.isBlank()) article.setThumbnailUrl(thumb);
+                    }
+                } catch (Exception e) {
+                    log.debug("Summary fetch failed for {}: {}", article.getArticleKey(), e.getMessage());
+                }
+            }, SUMMARY_POOL)
+        ).toList();
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.debug("Some Wikipedia summary fetches timed out or failed");
+        }
     }
 
     private List<WikipediaArticle> parseArticles(String json) throws Exception {
@@ -115,7 +159,7 @@ public class WikipediaService {
             if (shouldSkip(key)) continue;
 
             articles.add(new WikipediaArticle(rank, key, views));
-            if (articles.size() == MAX_ARTICLES) break;
+            if (articles.size() == FETCH_ARTICLES) break;
         }
         return articles;
     }
