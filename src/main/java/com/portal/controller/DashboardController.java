@@ -31,36 +31,27 @@ public class DashboardController {
 
     @GetMapping("/")
     public String dashboard(Model model) {
-        // Run all external API calls in parallel so a slow source doesn't block the rest.
-        // getApiUsage() reads a cache populated by getLatestNetflixShows(), so it is
-        // chained rather than run as an independent future.
-        CompletableFuture<?>[] futures = {
-            CompletableFuture.supplyAsync(newsService::getLatestNews)
-                .thenAccept(v -> model.addAttribute("news", v)),
-            CompletableFuture.supplyAsync(watchmodeService::getLatestNetflixShows)
-                .thenAccept(shows -> {
-                    model.addAttribute("shows", shows);
-                    model.addAttribute("netflixUsage", watchmodeService.getApiUsage());
-                }),
-            CompletableFuture.supplyAsync(wikipediaService::getTopArticles)
-                .thenAccept(v -> model.addAttribute("wikiArticles", v)),
-            CompletableFuture.supplyAsync(trendsService::getTopTrends)
-                .thenAccept(v -> model.addAttribute("trends", v)),
-        };
+        // Run all external API calls in parallel. Results are collected via typed futures
+        // and added to the model only after completion — Model is not thread-safe so we
+        // must never call addAttribute() from concurrent threads.
+        CompletableFuture<Object> newsFuture    = CompletableFuture.supplyAsync(() -> newsService.getLatestNews());
+        CompletableFuture<Object> showsFuture   = CompletableFuture.supplyAsync(() -> watchmodeService.getLatestNetflixShows());
+        CompletableFuture<Object> wikiFuture    = CompletableFuture.supplyAsync(() -> wikipediaService.getTopArticles());
+        CompletableFuture<Object> trendsFuture  = CompletableFuture.supplyAsync(() -> trendsService.getTopTrends());
 
-        // Wait for all, but no longer than 15 s total
         try {
-            CompletableFuture.allOf(futures).get(15, java.util.concurrent.TimeUnit.SECONDS);
+            CompletableFuture.allOf(newsFuture, showsFuture, wikiFuture, trendsFuture)
+                             .get(15, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
             // Partial results are fine — each service already returns an empty list on error
         }
 
-        // Ensure model keys always exist so Thymeleaf th:if / th:each don't throw
-        model.asMap().putIfAbsent("news",         List.of());
-        model.asMap().putIfAbsent("shows",        List.of());
-        model.asMap().putIfAbsent("netflixUsage", null);
-        model.asMap().putIfAbsent("wikiArticles", List.of());
-        model.asMap().putIfAbsent("trends",       List.of());
+        model.addAttribute("news",         newsFuture.getNow(List.of()));
+        Object shows = showsFuture.getNow(List.of());
+        model.addAttribute("shows",        shows);
+        model.addAttribute("netflixUsage", watchmodeService.getApiUsage());
+        model.addAttribute("wikiArticles", wikiFuture.getNow(List.of()));
+        model.addAttribute("trends",       trendsFuture.getNow(List.of()));
 
         return "dashboard";
     }
