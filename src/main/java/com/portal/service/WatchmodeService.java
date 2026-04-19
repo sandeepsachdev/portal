@@ -24,7 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Fetches up to 25 most recently released English Netflix titles using the Watchmode API.
+ * Fetches up to 25 most recently released titles from major streaming services using the Watchmode API.
  *
  * Required env var: WATCHMODE_API_KEY
  * API docs: https://api.watchmode.com/
@@ -34,7 +34,18 @@ public class WatchmodeService {
 
     private static final Logger log = LoggerFactory.getLogger(WatchmodeService.class);
 
-    private static final int NETFLIX_SOURCE_ID = 203;
+    // Watchmode source IDs — verify Stan ID at https://api.watchmode.com/v1/sources/
+    private static final String STREAMING_SOURCE_IDS =
+            "203"   + // Netflix
+            ",26"   + // Amazon Prime Video
+            ",372"  + // Disney+
+            ",387"  + // HBO Max
+            ",425";   // Stan (AU) — confirm ID via /v1/sources/ if results are missing
+
+    // Client-side filter on source_name (case-insensitive substring match)
+    private static final List<String> ALLOWED_SOURCES =
+            List.of("netflix", "amazon", "prime", "disney", "hbo", "max", "stan");
+
     private static final int LOOKBACK_DAYS = 5;
 
     private static final int MAX_RESULTS = 25;
@@ -47,7 +58,7 @@ public class WatchmodeService {
     private static final String RELEASES_URL =
             "https://api.watchmode.com/v1/releases/" +
             "?apiKey={apiKey}" +
-            "&source_ids=" + NETFLIX_SOURCE_ID +
+            "&source_ids=" + STREAMING_SOURCE_IDS +
             "&start_date={startDate}";
 
     private static final String DETAILS_URL =
@@ -93,7 +104,7 @@ public class WatchmodeService {
             ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
             cacheUsageFromHeaders(resp);
             List<Show> shows = parseShows(resp.getBody());
-            log.info("Watchmode returned {} Netflix releases since {}", shows.size(), startDate);
+            log.info("Watchmode returned {} streaming releases since {}", shows.size(), startDate);
             return shows;
         } catch (Exception e) {
             log.error("Failed to fetch Watchmode titles: {}", e.getMessage());
@@ -131,10 +142,17 @@ public class WatchmodeService {
             if (!imdbId.isBlank()) show.setImdbId(imdbId);
 
             String source = node.path("source_name").asText("");
-            if (!source.isBlank()) show.setSource(source);
+            if (source.isBlank() || ALLOWED_SOURCES.stream().noneMatch(source.toLowerCase()::contains)) {
+                log.debug("Skipping release from source '{}': {}", source, show.getTitle());
+                continue;
+            }
+            show.setSource(source);
 
             String poster = node.path("poster_url").asText("");
             if (!poster.isBlank()) show.setPoster(poster);
+
+            double rating = node.path("user_rating").asDouble(0);
+            if (rating > 0) show.setRating(String.format("%.1f", rating));
 
             entries.add(new Entry(rawDate, show));
         }
@@ -142,8 +160,16 @@ public class WatchmodeService {
         // Sort by source_release_date descending — YYYY-MM-DD strings sort correctly
         entries.sort(Comparator.comparing((Entry e) -> e.rawDate()).reversed());
 
-        entries.stream().limit(MAX_RESULTS).map(Entry::show).forEach(shows::add);
-        enrichWithRatings(shows);
+        List<Show> result = entries.stream().limit(MAX_RESULTS).map(Entry::show).toList();
+        long withRatings = result.stream().filter(show -> show.getRating() != null).count();
+        if (withRatings == 0) {
+            log.info("Releases response has no user_rating — enriching via detail calls");
+            shows.addAll(result);
+        //    enrichWithRatings(shows);
+        } else {
+            log.info("Got ratings from releases response ({}/{} shows)", withRatings, result.size());
+            shows.addAll(result);
+        }
         return shows;
     }
 
