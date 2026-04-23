@@ -59,7 +59,8 @@ public class WatchmodeService {
             "https://api.watchmode.com/v1/releases/" +
             "?apiKey={apiKey}" +
             "&source_ids=" + STREAMING_SOURCE_IDS +
-            "&start_date={startDate}";
+            "&start_date={startDate}" +
+            "&end_date={endDate}";
 
     private static final String DETAILS_URL =
             "https://api.watchmode.com/v1/title/{id}/details/?apiKey={apiKey}";
@@ -93,13 +94,14 @@ public class WatchmodeService {
         }
 
         try {
-            String startDate = LocalDate.now(ZoneOffset.UTC)
-                    .minusDays(LOOKBACK_DAYS)
-                    .format(YYYYMMDD);
+            LocalDate today = LocalDate.now(ZoneOffset.UTC);
+            String startDate = today.minusDays(LOOKBACK_DAYS).format(YYYYMMDD);
+            String endDate   = today.format(YYYYMMDD);
 
             String url = RELEASES_URL
                     .replace("{apiKey}", apiKey)
-                    .replace("{startDate}", startDate);
+                    .replace("{startDate}", startDate)
+                    .replace("{endDate}", endDate);
 
             ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
             cacheUsageFromHeaders(resp);
@@ -128,6 +130,8 @@ public class WatchmodeService {
         record Entry(String rawDate, Show show) {}
         List<Entry> entries = new ArrayList<>();
 
+        String todayIso = LocalDate.now(ZoneOffset.UTC).format(ISO_DATE);
+
         for (JsonNode node : releases) {
             Show show = new Show();
             show.setId(node.path("id").asInt(0));
@@ -135,6 +139,12 @@ public class WatchmodeService {
             show.setType(node.path("type").asText(""));
 
             String rawDate = node.path("source_release_date").asText("");
+            // Skip future releases — guard against API returning dates beyond end_date
+            if (rawDate.matches("\\d{4}-\\d{2}-\\d{2}") && rawDate.compareTo(todayIso) > 0) {
+                log.debug("Skipping future release dated {}: {}", rawDate, node.path("title").asText());
+                continue;
+            }
+
             String releaseDate = parseReleaseDate(node);
             if (releaseDate != null) show.setReleaseDate(releaseDate);
 
