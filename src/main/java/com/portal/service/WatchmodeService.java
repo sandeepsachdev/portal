@@ -59,7 +59,8 @@ public class WatchmodeService {
             "https://api.watchmode.com/v1/releases/" +
             "?apiKey={apiKey}" +
             "&source_ids=" + STREAMING_SOURCE_IDS +
-            "&start_date={startDate}";
+            "&start_date={startDate}" + "&end_date={today}";
+            ;
 
     private static final String DETAILS_URL =
             "https://api.watchmode.com/v1/title/{id}/details/?apiKey={apiKey}";
@@ -96,10 +97,12 @@ public class WatchmodeService {
             String startDate = LocalDate.now(ZoneOffset.UTC)
                     .minusDays(LOOKBACK_DAYS)
                     .format(YYYYMMDD);
+            String today = LocalDate.now(ZoneOffset.UTC).format(YYYYMMDD);
 
             String url = RELEASES_URL
                     .replace("{apiKey}", apiKey)
-                    .replace("{startDate}", startDate);
+                    .replace("{startDate}", startDate)
+                    .replace("{today}", today);
 
             ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, null, String.class);
             cacheUsageFromHeaders(resp);
