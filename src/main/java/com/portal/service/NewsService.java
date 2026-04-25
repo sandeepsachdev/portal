@@ -31,7 +31,7 @@ public class NewsService {
     private static final String ABC_NEWS_RSS =
             "https://www.smh.com.au/rss/feed.xml";
 
-    private static final int MAX_ITEMS = 10;
+    private static final int MAX_ITEMS = 5;
 
     // ABC News RSS uses RFC 822 dates: "Mon, 15 Apr 2024 02:30:00 +0000"
     private static final DateTimeFormatter RFC_822 =
