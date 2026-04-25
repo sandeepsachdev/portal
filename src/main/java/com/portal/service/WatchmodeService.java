@@ -97,7 +97,7 @@ public class WatchmodeService {
             String startDate = LocalDate.now(ZoneOffset.UTC)
                     .minusDays(LOOKBACK_DAYS)
                     .format(YYYYMMDD);
-            String today = LocalDate.now(ZoneOffset.UTC).format(YYYYMMDD);
+            String today = LocalDate.now(ZoneOffset.UTC).plusDays(1).format(YYYYMMDD);
 
             String url = RELEASES_URL
                     .replace("{apiKey}", apiKey)
