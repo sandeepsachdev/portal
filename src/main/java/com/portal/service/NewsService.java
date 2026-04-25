@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+
+import org.springframework.web.util.HtmlUtils;
+
 /**
  * Fetches the latest Australian news from the ABC News RSS feed.
  *
@@ -26,9 +29,9 @@ public class NewsService {
     private static final Logger log = LoggerFactory.getLogger(NewsService.class);
 
     private static final String ABC_NEWS_RSS =
-            "https://www.abc.net.au/news/feed/51120/rss.xml";
+            "https://www.smh.com.au/rss/feed.xml";
 
-    private static final int MAX_ITEMS = 6;
+    private static final int MAX_ITEMS = 10;
 
     // ABC News RSS uses RFC 822 dates: "Mon, 15 Apr 2024 02:30:00 +0000"
     private static final DateTimeFormatter RFC_822 =
@@ -59,12 +62,25 @@ public class NewsService {
         }
     }
 
+    public static String cleanString(String input) {
+        if (input == null) return null;
+
+        return input
+                // Keep letters, digits, and basic punctuation
+                .replaceAll("[^a-zA-Z0-9.,!?;:'\"()\\-]", " ")
+                // Collapse multiple spaces
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
     private List<NewsItem> parseRss(String xml) {
         List<NewsItem> items = new ArrayList<>();
 
         // Split on <item> boundaries
         String[] rawItems = xml.split("<item>");
         for (int i = 1; i < rawItems.length && items.size() < MAX_ITEMS; i++) {
+            if (rawItems[i].toLowerCase().contains("sport")) {
+                continue;
+            }
             String block = rawItems[i];
 
             String title       = extractTag(block, "title");
@@ -77,8 +93,10 @@ public class NewsService {
 
             // Strip leading/trailing CDATA wrappers and HTML entities
             title       = cleanCdata(title);
+            title       = cleanString(title);
             description = cleanCdata(description);
             description = stripHtml(description);
+            description = cleanString(description);
 
             // Truncate description for display
             if (description != null && description.length() > 180) {
