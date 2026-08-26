@@ -281,6 +281,7 @@ html, body {
 }
 
 .trend-name {
+    display: block;
     font-weight: 600;
     font-size: 0.9rem;
     color: var(--text-primary);
@@ -290,7 +291,18 @@ html, body {
 .trend-name:hover { color: var(--accent-trends); }
 span.trend-name { cursor: default; }
 
-.trend-volume { font-size: 0.7rem; }
+.trend-volume {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 2px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.min-width-0 { min-width: 0; }
 
 /* ── Responsive (stacked on mobile) ─────────────────────────────────────── */
 @media (max-width: 768px) {

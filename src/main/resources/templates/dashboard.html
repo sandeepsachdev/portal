@@ -80,16 +80,16 @@
 
             <div th:each="trend : ${trends}" class="trend-item d-flex align-items-center gap-3">
                 <span class="trend-rank" th:text="${trend.rank}">1</span>
-                <div class="flex-grow-1">
+                <div class="flex-grow-1 min-width-0">
                     <a th:if="${trend.url != null and !#strings.isEmpty(trend.url)}"
                        th:href="${trend.url}" target="_blank" rel="noopener"
                        class="trend-name" th:text="${trend.name}">Trend</a>
                     <span th:unless="${trend.url != null and !#strings.isEmpty(trend.url)}"
                           class="trend-name" th:text="${trend.name}">Trend</span>
+                    <div th:if="${trend.tweetVolume != null and !#strings.isEmpty(trend.tweetVolume)}"
+                         class="trend-volume"
+                         th:text="${trend.tweetVolume}"></div>
                 </div>
-                <span th:if="${trend.tweetVolume != null and !#strings.isEmpty(trend.tweetVolume)}"
-                      class="trend-volume badge bg-secondary"
-                      th:text="${trend.tweetVolume}"></span>
             </div>
 
         </div>
